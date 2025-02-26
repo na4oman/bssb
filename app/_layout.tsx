@@ -14,9 +14,9 @@ declare global {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <StatusBar 
-        style="dark" 
-        backgroundColor="#f5f5f5" 
+      <StatusBar
+        style="light" 
+        backgroundColor="#e21d38" 
         translucent={false}
       />
       <Stack

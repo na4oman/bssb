@@ -33,7 +33,7 @@ export default function TabLayout() {
   return (
     <SafeAreaProvider>
       <StatusBar 
-        style="dark" 
+        style="light" 
         backgroundColor="#e21d38" 
         translucent={false}
       />
@@ -42,13 +42,13 @@ export default function TabLayout() {
           header: () => <CustomHeader />,
           headerStyle: {
             backgroundColor: '#e21d38',
-            height: 100, // Adjust height to accommodate logo and text
+            height: 100, 
           },
           headerTitleStyle: {
             fontSize: 16,
             fontWeight: 'bold',
           },
-          headerShown: true, // Enable header
+          headerShown: true, 
           tabBarStyle: {
             backgroundColor: '#e21d38',
             borderTopWidth: 0,
@@ -124,6 +124,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#fff',
-    flexShrink: 1, // Allow text to wrap if too long
+    flexShrink: 1, 
   },
 });

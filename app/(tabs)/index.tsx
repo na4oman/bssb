@@ -12,13 +12,12 @@ import {
   ImageBackground,
   Dimensions,
   Alert,
+  Modal as RNModal,
 } from 'react-native';
 import { format } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import Modal from 'react-native-modal';
 import * as ImagePicker from 'expo-image-picker';
-
-const DEFAULT_EVENT_IMAGE = 'https://www.sunderlandecho.com/webimg/b25lY21zOmI3MGJlOTU0LWYzZWYtNDdjOC04ZjQwLTE4NDlhOWM2MmQ1YTo3MmI1NjBkOS01NDM5LTQzOGEtOWFkNy1kYmZkZmViNjUyYmI=.jpg?width=1200&enable=upscale';
 
 // Custom type definition for location
 type Location = {
@@ -33,6 +32,9 @@ const DEFAULT_LOCATION = {
   longitude: -1.3882,
   placeName: 'Stadium of Light, Sunderland',
 };
+
+// Restore the default event image
+const DEFAULT_EVENT_IMAGE = 'https://www.sunderlandecho.com/webimg/b25lY21zOmI3MGJlOTU0LWYzZWYtNDdjOC04ZjQwLTE4NDlhOWM2MmQ1YTo3MmI1NjBkOS01NDM5LTQzOGEtOWFkNy1kYmZkZmViNjUyYmI=.jpg?width=1200&enable=upscale';
 
 // Simulated current user (in a real app, this would come from authentication)
 const currentUser = {
@@ -64,7 +66,6 @@ export default function IndexScreen(): React.ReactElement {
   // State definitions
   const [events, setEvents] = useState<Event[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [commentText, setCommentText] = useState('');
   const [newEvent, setNewEvent] = useState({
@@ -76,6 +77,8 @@ export default function IndexScreen(): React.ReactElement {
     locationCoordinates: undefined as Location | undefined,
   });
   const [mediaLibraryPermission, setMediaLibraryPermission] = useState<boolean | null>(null);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const handleDateChange = (date: Date) => {
     setSelectedDate(date);
@@ -176,6 +179,46 @@ export default function IndexScreen(): React.ReactElement {
       }
       return event;
     }));
+  };
+
+  const showDateTimePicker = () => {
+    setDatePickerVisible(true);
+  };
+
+  const DateTimeInput = () => {
+    // Web-specific date input
+    if (Platform.OS === 'web') {
+      return (
+        <input
+          type="datetime-local"
+          value={format(newEvent.date, "yyyy-MM-dd'T'HH:mm")}
+          onChange={(e) => {
+            const date = new Date(e.target.value);
+            setNewEvent({ ...newEvent, date });
+          }}
+          style={{
+            padding: 10,
+            borderWidth: 1,
+            borderColor: '#ddd',
+            borderRadius: 5,
+            marginBottom: 15,
+            width: '100%',
+          }}
+        />
+      );
+    }
+
+    // Mobile/Native date selection
+    return (
+      <TouchableOpacity
+        style={styles.dateButton}
+        onPress={() => setDatePickerVisible(true)}
+      >
+        <Text style={styles.dateButtonText}>
+          {format(newEvent.date, 'MMMM dd, yyyy HH:mm')}
+        </Text>
+      </TouchableOpacity>
+    );
   };
 
   const renderEventDetails = (event: Event) => {
@@ -365,6 +408,122 @@ export default function IndexScreen(): React.ReactElement {
     }
   };
 
+  const DatePickerModal = () => {
+    const [tempDate, setTempDate] = useState(new Date(selectedDate));
+
+    const handleDateChange = () => {
+      setSelectedDate(tempDate);
+      setNewEvent(prev => ({
+        ...prev,
+        date: tempDate
+      }));
+      setDatePickerVisible(false);
+    };
+
+    return (
+      <RNModal
+        animationType="slide"
+        transparent={true}
+        visible={datePickerVisible}
+        onRequestClose={() => setDatePickerVisible(false)}
+      >
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalTitle}>Select Date and Time</Text>
+            
+            {/* Date Input */}
+            <View style={styles.dateInputContainer}>
+              <Text style={styles.label}>Date</Text>
+              <View style={styles.dateInputRow}>
+                <TextInput
+                  style={styles.dateInput}
+                  value={format(tempDate, 'yyyy')}
+                  keyboardType="numeric"
+                  maxLength={4}
+                  onChangeText={(year) => {
+                    const newDate = new Date(tempDate);
+                    newDate.setFullYear(parseInt(year) || new Date().getFullYear());
+                    setTempDate(newDate);
+                  }}
+                  placeholder="Year"
+                />
+                <TextInput
+                  style={styles.dateInput}
+                  value={format(tempDate, 'MM')}
+                  keyboardType="numeric"
+                  maxLength={2}
+                  onChangeText={(month) => {
+                    const newDate = new Date(tempDate);
+                    newDate.setMonth(parseInt(month) - 1 || 0);
+                    setTempDate(newDate);
+                  }}
+                  placeholder="Month"
+                />
+                <TextInput
+                  style={styles.dateInput}
+                  value={format(tempDate, 'dd')}
+                  keyboardType="numeric"
+                  maxLength={2}
+                  onChangeText={(day) => {
+                    const newDate = new Date(tempDate);
+                    newDate.setDate(parseInt(day) || 1);
+                    setTempDate(newDate);
+                  }}
+                  placeholder="Day"
+                />
+              </View>
+
+              {/* Time Input */}
+              <Text style={styles.label}>Time</Text>
+              <View style={styles.dateInputRow}>
+                <TextInput
+                  style={styles.dateInput}
+                  value={format(tempDate, 'HH')}
+                  keyboardType="numeric"
+                  maxLength={2}
+                  onChangeText={(hours) => {
+                    const newDate = new Date(tempDate);
+                    newDate.setHours(parseInt(hours) || 0);
+                    setTempDate(newDate);
+                  }}
+                  placeholder="Hours"
+                />
+                <TextInput
+                  style={styles.dateInput}
+                  value={format(tempDate, 'mm')}
+                  keyboardType="numeric"
+                  maxLength={2}
+                  onChangeText={(minutes) => {
+                    const newDate = new Date(tempDate);
+                    newDate.setMinutes(parseInt(minutes) || 0);
+                    setTempDate(newDate);
+                  }}
+                  placeholder="Minutes"
+                />
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setDatePickerVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={handleDateChange}
+              >
+                <Text style={styles.modalButtonText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </RNModal>
+    );
+  };
+
   // Render method
   return (
     <View style={styles.container}>
@@ -435,66 +594,62 @@ export default function IndexScreen(): React.ReactElement {
             animationOut="slideOutDown"
           >
             <View style={styles.modalContent}>
-              <ScrollView>
-                <Text style={styles.modalTitle}>Create New Event</Text>
-                
-                <Text style={styles.label}>Title</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newEvent.title}
-                  onChangeText={(text) =>
-                    setNewEvent({ ...newEvent, title: text })
-                  }
-                  placeholder="Event Title"
+              <Text style={styles.modalTitle}>Create New Event</Text>
+              
+              <Text style={styles.label}>Title</Text>
+              <TextInput
+                style={styles.input}
+                value={newEvent.title}
+                onChangeText={(text) =>
+                  setNewEvent({ ...newEvent, title: text })
+                }
+                placeholder="Event Title"
+              />
+
+              <Text style={styles.label}>Date and Time</Text>
+              <DateTimeInput />
+              
+              <Text style={styles.label}>Location</Text>
+              <TextInput
+                style={styles.input}
+                value={newEvent.location}
+                onChangeText={(text) =>
+                  setNewEvent({ ...newEvent, location: text })
+                }
+                placeholder="Event Location"
+              />
+
+              <Text style={styles.label}>Description</Text>
+              <TextInput
+                style={[styles.input, styles.multilineInput]}
+                value={newEvent.description}
+                onChangeText={(text) =>
+                  setNewEvent({ ...newEvent, description: text })
+                }
+                placeholder="Event Description"
+                multiline
+              />
+
+              <Text style={styles.label}>Image URL (Optional)</Text>
+              <TouchableOpacity 
+                style={styles.input}
+                onPress={pickImage}
+              >
+                <Text style={{ padding: 10, fontSize: 16 }}>
+                  {newEvent.imageUrl ? 'Change Image' : 'Select Image'}
+                </Text>
+              </TouchableOpacity>
+              
+              {newEvent.imageUrl && (
+                <Image 
+                  source={{ uri: newEvent.imageUrl }} 
+                  style={styles.imagePreview} 
                 />
+              )}
 
-                <Text style={styles.label}>Date and Time</Text>
-                <TouchableOpacity onPress={() => handleDateChange(new Date())}>
-                  <Text>Select Date: {format(selectedDate, 'PPP')}</Text>
-                </TouchableOpacity>
-
-                <Text style={styles.label}>Location</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newEvent.location}
-                  onChangeText={(text) =>
-                    setNewEvent({ ...newEvent, location: text })
-                  }
-                  placeholder="Event Location"
-                />
-
-                <Text style={styles.label}>Description</Text>
-                <TextInput
-                  style={[styles.input, styles.multilineInput]}
-                  value={newEvent.description}
-                  onChangeText={(text) =>
-                    setNewEvent({ ...newEvent, description: text })
-                  }
-                  placeholder="Event Description"
-                  multiline
-                />
-
-                <Text style={styles.label}>Image URL (Optional)</Text>
-                <TouchableOpacity 
-                  style={styles.input}
-                  onPress={pickImage}
-                >
-                  <Text style={{ padding: 10, fontSize: 16 }}>
-                    {newEvent.imageUrl ? 'Change Image' : 'Select Image'}
-                  </Text>
-                </TouchableOpacity>
-                
-                {newEvent.imageUrl && (
-                  <Image 
-                    source={{ uri: newEvent.imageUrl }} 
-                    style={styles.imagePreview} 
-                  />
-                )}
-
-                <TouchableOpacity style={styles.submitButton} onPress={addEvent}>
-                  <Text style={styles.submitButtonText}>Create Event</Text>
-                </TouchableOpacity>
-              </ScrollView>
+              <TouchableOpacity style={styles.submitButton} onPress={addEvent}>
+                <Text style={styles.submitButtonText}>Create Event</Text>
+              </TouchableOpacity>
             </View>
           </Modal>
 
@@ -506,6 +661,9 @@ export default function IndexScreen(): React.ReactElement {
 
           {/* Event Details Modal */}
           {selectedEvent && renderEventDetails(selectedEvent)}
+
+          {/* Custom Date Picker Modal */}
+          <DatePickerModal />
         </View>
       </ImageBackground>
       {/* <Text>Events Screen</Text> */}
@@ -810,6 +968,77 @@ const styles = StyleSheet.create({
     height: 150,
     borderRadius: 10,
     marginBottom: 20,
+  },
+  dateButton: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 15,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalView: {
+    width: '90%',
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  dateInputContainer: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  dateInputRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  dateInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    padding: 10,
+    width: '30%',
+    textAlign: 'center',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalButton: {
+    borderRadius: 5,
+    padding: 10,
+    elevation: 2,
+    width: '45%',
+  },
+  modalButtonCancel: {
+    backgroundColor: '#f0f0f0',
+  },
+  modalButtonConfirm: {
+    backgroundColor: '#e21d38',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 
