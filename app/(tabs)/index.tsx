@@ -36,6 +36,9 @@ const DEFAULT_LOCATION = {
 // Restore the default event image
 const DEFAULT_EVENT_IMAGE = 'https://www.sunderlandecho.com/webimg/b25lY21zOmI3MGJlOTU0LWYzZWYtNDdjOC04ZjQwLTE4NDlhOWM2MmQ1YTo3MmI1NjBkOS01NDM5LTQzOGEtOWFkNy1kYmZkZmViNjUyYmI=.jpg?width=1200&enable=upscale';
 
+// New background image from assets
+const BACKGROUND_IMAGE = require('../../assets/images/index-background.jpg');
+
 // Simulated current user (in a real app, this would come from authentication)
 const currentUser = {
   userId: 'user123',
@@ -528,7 +531,8 @@ export default function IndexScreen(): React.ReactElement {
   return (
     <View style={styles.container}>
       <ImageBackground
-        source={{ uri: DEFAULT_EVENT_IMAGE }}
+        source={BACKGROUND_IMAGE} // Use the new background image
+        defaultSource={{ uri: DEFAULT_EVENT_IMAGE }} // Fallback to default image
         style={styles.backgroundImage}
         resizeMode="cover"
       >
@@ -593,63 +597,93 @@ export default function IndexScreen(): React.ReactElement {
             animationIn="slideInUp"
             animationOut="slideOutDown"
           >
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Create New Event</Text>
-              
-              <Text style={styles.label}>Title</Text>
-              <TextInput
-                style={styles.input}
-                value={newEvent.title}
-                onChangeText={(text) =>
-                  setNewEvent({ ...newEvent, title: text })
-                }
-                placeholder="Event Title"
-              />
-
-              <Text style={styles.label}>Date and Time</Text>
-              <DateTimeInput />
-              
-              <Text style={styles.label}>Location</Text>
-              <TextInput
-                style={styles.input}
-                value={newEvent.location}
-                onChangeText={(text) =>
-                  setNewEvent({ ...newEvent, location: text })
-                }
-                placeholder="Event Location"
-              />
-
-              <Text style={styles.label}>Description</Text>
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
-                value={newEvent.description}
-                onChangeText={(text) =>
-                  setNewEvent({ ...newEvent, description: text })
-                }
-                placeholder="Event Description"
-                multiline
-              />
-
-              <Text style={styles.label}>Image URL (Optional)</Text>
-              <TouchableOpacity 
-                style={styles.input}
-                onPress={pickImage}
+            <View style={styles.modalContainer}>
+              <ScrollView 
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={true}
               >
-                <Text style={{ padding: 10, fontSize: 16 }}>
-                  {newEvent.imageUrl ? 'Change Image' : 'Select Image'}
-                </Text>
-              </TouchableOpacity>
-              
-              {newEvent.imageUrl && (
-                <Image 
-                  source={{ uri: newEvent.imageUrl }} 
-                  style={styles.imagePreview} 
-                />
-              )}
+                <View style={styles.modalContent}>
+                  <TouchableOpacity 
+                    style={styles.closeButton} 
+                    onPress={() => setModalVisible(false)}
+                  >
+                    <Ionicons name="close" size={24} color="white" />
+                  </TouchableOpacity>
 
-              <TouchableOpacity style={styles.submitButton} onPress={addEvent}>
-                <Text style={styles.submitButtonText}>Create Event</Text>
-              </TouchableOpacity>
+                  <Text style={styles.modalTitle}>Create New Event</Text>
+
+                  <Text style={styles.label}>Event Title</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter event title"
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    value={newEvent.title}
+                    onChangeText={(text) => setNewEvent(prev => ({
+                      ...prev,
+                      title: text
+                    }))}
+                  />
+
+                  <Text style={styles.label}>Date and Time</Text>
+                  <DateTimeInput />
+                  
+                  <Text style={styles.label}>Location</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter event location"
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    value={newEvent.location}
+                    onChangeText={(text) => setNewEvent(prev => ({
+                      ...prev,
+                      location: text
+                    }))}
+                  />
+
+                  <Text style={styles.label}>Description</Text>
+                  <TextInput
+                    style={[styles.input, styles.multilineInput]}
+                    placeholder="Enter event description"
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    multiline={true}
+                    numberOfLines={4}
+                    value={newEvent.description}
+                    onChangeText={(text) => setNewEvent(prev => ({
+                      ...prev,
+                      description: text
+                    }))}
+                  />
+
+                  <Text style={styles.label}>Event Image</Text>
+                  <View style={styles.imagePickerContainer}>
+                    <TouchableOpacity 
+                      style={styles.imagePickerButton} 
+                      onPress={pickImage}
+                    >
+                      <Ionicons name="image-outline" size={24} color="white" />
+                      <Text style={styles.imagePickerText}>
+                        {newEvent.imageUrl ? 'Change Image' : 'Select Image'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {newEvent.imageUrl && (
+                      <Image 
+                        source={{ uri: newEvent.imageUrl }} 
+                        style={styles.selectedImage} 
+                      />
+                    )}
+                  </View>
+
+                  <TouchableOpacity 
+                    style={styles.createEventButton} 
+                    onPress={addEvent}
+                  >
+                    <Text style={styles.createEventButtonText}>
+                      Create Event
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </View>
           </Modal>
 
@@ -671,8 +705,7 @@ export default function IndexScreen(): React.ReactElement {
   );
 }
 
-// Styles (keep existing styles)
-
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -750,49 +783,102 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     margin: 0,
   },
+  modalContainer: {
+    justifyContent: 'flex-end',
+    margin: 0,
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
   modalContent: {
     backgroundColor: '#fff',
-    margin: 20,
-    borderRadius: 10,
+    borderRadius: 20,
     padding: 20,
-    boxShadow: '0 4px 4px rgba(0, 0, 0, 0.25)',
-    maxHeight: '80%',
+    width: '90%',
+    alignSelf: 'center',
+    maxWidth: 500,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 10,
+  },
+  closeIcon: {
+    color: '#e21d38', // Sunderland red for close icon
   },
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#e21d38',
+    color: '#e21d38', // Sunderland red for title
     marginBottom: 20,
     textAlign: 'center',
   },
   label: {
     fontSize: 16,
-    color: '#333',
+    color: '#333', // Dark gray for labels
     marginBottom: 5,
+    fontWeight: '600',
   },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 5,
+    borderRadius: 10,
     padding: 10,
     marginBottom: 15,
     fontSize: 16,
+    color: '#000',
+    backgroundColor: '#f9f9f9', // Light background for inputs
   },
   multilineInput: {
     height: 100,
     textAlignVertical: 'top',
   },
-  submitButton: {
-    backgroundColor: '#e21d38',
+  imagePickerContainer: {
+    marginBottom: 20,
+  },
+  imagePickerButton: {
+    borderWidth: 1,
+    borderColor: '#e21d38', // Sunderland red border
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9', // Light background
+  },
+  imagePickerText: {
+    fontSize: 16,
+    color: '#e21d38', // Sunderland red text
+    marginLeft: 10,
+  },
+  selectedImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  createEventButton: {
+    backgroundColor: '#e21d38', // Sunderland red
     padding: 15,
-    borderRadius: 5,
-    justifyContent: 'center',
+    borderRadius: 10,
     alignItems: 'center',
     marginTop: 20,
   },
-  submitButtonText: {
+  createEventButtonText: {
     fontSize: 16,
     color: '#fff',
+    fontWeight: 'bold',
   },
   emptyState: {
     flex: 1,
@@ -962,12 +1048,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  imagePreview: {
-    width: '100%',
-    height: 150,
-    borderRadius: 10,
-    marginBottom: 20,
   },
   dateButton: {
     borderWidth: 1,
