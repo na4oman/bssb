@@ -10,8 +10,8 @@ import {
   StyleSheet 
 } from 'react-native';
 
-// Import the logo
-import LogoImage from '@/assets/logo.jpg';
+// Import the logo using the correct path
+const LogoImage = require('../../assets/logo.jpg');
 
 // Custom Header Component
 const CustomHeader = () => {
@@ -34,14 +34,14 @@ export default function TabLayout() {
     <SafeAreaProvider>
       <StatusBar 
         style="dark" 
-        backgroundColor="#f5f5f5" 
+        backgroundColor="#e21d38" 
         translucent={false}
       />
       <Tabs 
         screenOptions={{
           header: () => <CustomHeader />,
           headerStyle: {
-            backgroundColor: '#f5f5f5',
+            backgroundColor: '#e21d38',
             height: 100, // Adjust height to accommodate logo and text
           },
           headerTitleStyle: {
@@ -114,7 +114,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
     backgroundColor: '#e21d38',
-    
   },
   logo: {
     width: 50,
