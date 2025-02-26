@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "661308293819",
+    "project_id": "safc-8863b",
+    "storage_bucket": "safc-8863b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:661308293819:android:9ce6f923f7d733681cdf9e",
+        "android_client_info": {
+          "package_name": "com.atanas_irikev.boltexponativewind"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCa87-Ag8jGFmgbQ8pEN0ekae9Wh52pf0g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
