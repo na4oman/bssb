@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import {
   View,
   Text,
@@ -13,64 +13,66 @@ import {
   Dimensions,
   Alert,
   Modal as RNModal,
-} from 'react-native';
-import { format } from 'date-fns';
-import { Ionicons } from '@expo/vector-icons';
-import Modal from 'react-native-modal';
-import * as ImagePicker from 'expo-image-picker';
+  Button,
+} from 'react-native'
+import { format } from 'date-fns'
+import { Ionicons } from '@expo/vector-icons'
+import Modal from 'react-native-modal'
+import * as ImagePicker from 'expo-image-picker'
 
 // Custom type definition for location
 type Location = {
-  latitude: number;
-  longitude: number;
-  placeName?: string;
-};
+  latitude: number
+  longitude: number
+  placeName?: string
+}
 
 // Fallback location
 const DEFAULT_LOCATION = {
   latitude: 54.9146,
   longitude: -1.3882,
   placeName: 'Stadium of Light, Sunderland',
-};
+}
 
 // Restore the default event image
-const DEFAULT_EVENT_IMAGE = 'https://www.sunderlandecho.com/webimg/b25lY21zOmI3MGJlOTU0LWYzZWYtNDdjOC04ZjQwLTE4NDlhOWM2MmQ1YTo3MmI1NjBkOS01NDM5LTQzOGEtOWFkNy1kYmZkZmViNjUyYmI=.jpg?width=1200&enable=upscale';
+const DEFAULT_EVENT_IMAGE =
+  'https://www.sunderlandecho.com/webimg/b25lY21zOmI3MGJlOTU0LWYzZWYtNDdjOC04ZjQwLTE4NDlhOWM2MmQ1YTo3MmI1NjBkOS01NDM5LTQzOGEtOWFkNy1kYmZkZmViNjUyYmI=.jpg?width=1200&enable=upscale'
 
 // New background image from assets
-const BACKGROUND_IMAGE = require('../../assets/images/index-background.jpg');
+const BACKGROUND_IMAGE = require('../../assets/images/index-background.jpg')
 
 // Simulated current user (in a real app, this would come from authentication)
 const currentUser = {
   userId: 'user123',
   userName: 'John Doe',
-};
+}
 
 // Define type for Firebase messaging payload
 interface NotificationPayload {
   notification?: {
-    title?: string;
-    body?: string;
-  };
-  data?: Record<string, string>;
+    title?: string
+    body?: string
+  }
+  data?: Record<string, string>
 }
 
 // Request media library permissions
 const requestMediaLibraryPermission = async () => {
   if (Platform.OS !== 'web') {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    const isGranted = status === 'granted';
-    return isGranted;
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    const isGranted = status === 'granted'
+    return isGranted
   }
-  return true;
-};
+  return true
+}
 
 // Main component
 export default function IndexScreen(): React.ReactElement {
   // State definitions
-  const [events, setEvents] = useState<Event[]>([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [commentText, setCommentText] = useState('');
+  const [events, setEvents] = useState<Event[]>([])
+  const [modalVisible, setModalVisible] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+  const [commentText, setCommentText] = useState('')
   const [newEvent, setNewEvent] = useState({
     title: '',
     date: new Date(),
@@ -78,15 +80,17 @@ export default function IndexScreen(): React.ReactElement {
     description: '',
     imageUrl: '',
     locationCoordinates: undefined as Location | undefined,
-  });
-  const [mediaLibraryPermission, setMediaLibraryPermission] = useState<boolean | null>(null);
-  const [datePickerVisible, setDatePickerVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  })
+  const [mediaLibraryPermission, setMediaLibraryPermission] = useState<
+    boolean | null
+  >(null)
+  const [datePickerVisible, setDatePickerVisible] = useState(false)
+  const [selectedDate, setSelectedDate] = useState(new Date())
 
   const handleDateChange = (date: Date) => {
-    setSelectedDate(date);
-    setNewEvent(prev => ({ ...prev, date }));
-  };
+    setSelectedDate(date)
+    setNewEvent(prev => ({ ...prev, date }))
+  }
 
   const addEvent = () => {
     const event: Event = {
@@ -101,10 +105,10 @@ export default function IndexScreen(): React.ReactElement {
       likes: [],
       comments: [],
       attendees: [],
-    };
+    }
 
     // Add event to events list
-    setEvents([...events, event]);
+    setEvents([...events, event])
 
     // Reset form
     setNewEvent({
@@ -114,29 +118,31 @@ export default function IndexScreen(): React.ReactElement {
       description: '',
       imageUrl: '',
       locationCoordinates: undefined,
-    });
+    })
 
     // Close modal
-    setModalVisible(false);
-  };
+    setModalVisible(false)
+  }
 
   const toggleLike = (eventId: string) => {
-    setEvents(events.map(event => {
-      if (event.id === eventId) {
-        const isLiked = event.likes.includes(currentUser.userId);
-        return {
-          ...event,
-          likes: isLiked 
-            ? event.likes.filter(id => id !== currentUser.userId)
-            : [...event.likes, currentUser.userId]
-        };
-      }
-      return event;
-    }));
-  };
+    setEvents(
+      events.map(event => {
+        if (event.id === eventId) {
+          const isLiked = event.likes.includes(currentUser.userId)
+          return {
+            ...event,
+            likes: isLiked
+              ? event.likes.filter(id => id !== currentUser.userId)
+              : [...event.likes, currentUser.userId],
+          }
+        }
+        return event
+      })
+    )
+  }
 
   const addComment = (eventId: string) => {
-    if (!commentText.trim()) return;
+    if (!commentText.trim()) return
 
     const newComment: EventComment = {
       id: Date.now().toString(),
@@ -144,60 +150,67 @@ export default function IndexScreen(): React.ReactElement {
       userName: currentUser.userName,
       text: commentText,
       timestamp: new Date(),
-    };
+    }
 
-    setEvents(events.map(event => {
-      if (event.id === eventId) {
-        return {
-          ...event,
-          comments: [...event.comments, newComment]
-        };
-      }
-      return event;
-    }));
+    setEvents(
+      events.map(event => {
+        if (event.id === eventId) {
+          return {
+            ...event,
+            comments: [...event.comments, newComment],
+          }
+        }
+        return event
+      })
+    )
 
-    setCommentText('');
-  };
+    setCommentText('')
+  }
 
-  const updateAttendanceStatus = (eventId: string, status: 'going' | 'maybe' | 'not going') => {
-    setEvents(events.map(event => {
-      if (event.id === eventId) {
-        // Remove existing attendance if user already has one
-        const filteredAttendees = event.attendees.filter(
-          attendee => attendee.userId !== currentUser.userId
-        );
+  const updateAttendanceStatus = (
+    eventId: string,
+    status: 'going' | 'maybe' | 'not going'
+  ) => {
+    setEvents(
+      events.map(event => {
+        if (event.id === eventId) {
+          // Remove existing attendance if user already has one
+          const filteredAttendees = event.attendees.filter(
+            attendee => attendee.userId !== currentUser.userId
+          )
 
-        // Add new attendance status
-        return {
-          ...event,
-          attendees: [
-            ...filteredAttendees, 
-            { 
-              userId: currentUser.userId, 
-              userName: currentUser.userName, 
-              status 
-            }
-          ]
-        };
-      }
-      return event;
-    }));
-  };
+          // Add new attendance status
+          return {
+            ...event,
+            attendees: [
+              ...filteredAttendees,
+              {
+                userId: currentUser.userId,
+                userName: currentUser.userName,
+                status,
+              },
+            ],
+          }
+        }
+        return event
+      })
+    )
+  }
 
   const showDateTimePicker = () => {
-    setDatePickerVisible(true);
-  };
+    setDatePickerVisible(true)
+  }
 
   const DateTimeInput = () => {
     // Web-specific date input
     if (Platform.OS === 'web') {
       return (
         <input
-          type="datetime-local"
+          type='datetime-local'
           value={format(newEvent.date, "yyyy-MM-dd'T'HH:mm")}
-          onChange={(e) => {
-            const date = new Date(e.target.value);
-            setNewEvent({ ...newEvent, date });
+          onChange={e => {
+            const date = new Date(e.target.value)
+            setNewEvent({ ...newEvent, date })
           }}
           style={{
             padding: 10,
@@ -208,7 +221,7 @@ export default function IndexScreen(): React.ReactElement {
             width: '100%',
           }}
         />
-      );
+      )
     }
 
     // Mobile/Native date selection
@@ -221,8 +234,8 @@ export default function IndexScreen(): React.ReactElement {
           {format(newEvent.date, 'MMMM dd, yyyy HH:mm')}
         </Text>
       </TouchableOpacity>
-    );
-  };
+    )
+  }
 
   const renderEventDetails = (event: Event) => {
     return (
@@ -231,22 +244,22 @@ export default function IndexScreen(): React.ReactElement {
         onBackdropPress={() => setSelectedEvent(null)}
         style={styles.eventDetailsModal}
         backdropOpacity={0.5}
-        animationIn="slideInUp"
-        animationOut="slideOutDown"
+        animationIn='slideInUp'
+        animationOut='slideOutDown'
       >
         <ScrollView style={styles.eventDetailsModalContent}>
           {/* Event Header */}
           <View style={styles.eventDetailsHeader}>
             <TouchableOpacity onPress={() => setSelectedEvent(null)}>
-              <Ionicons name="close" size={24} color="black" />
+              <Ionicons name='close' size={24} color='black' />
             </TouchableOpacity>
           </View>
 
           {/* Event Image */}
-          <Image 
-            source={{ uri: event.imageUrl || DEFAULT_EVENT_IMAGE }} 
-            style={styles.eventDetailImage} 
-            resizeMode="cover" 
+          <Image
+            source={{ uri: event.imageUrl || DEFAULT_EVENT_IMAGE }}
+            style={styles.eventDetailImage}
+            resizeMode='cover'
           />
 
           {/* Event Basic Info */}
@@ -256,38 +269,48 @@ export default function IndexScreen(): React.ReactElement {
               {format(event.date, 'MMMM dd, yyyy HH:mm')}
             </Text>
             <Text style={styles.eventDetailsLocation}>{event.location}</Text>
-            <Text style={styles.eventDetailsDescription}>{event.description}</Text>
+            <Text style={styles.eventDetailsDescription}>
+              {event.description}
+            </Text>
 
             {/* Attendance Buttons */}
             <View style={styles.attendanceButtonContainer}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.attendanceButton, 
-                  event.attendees.some(a => a.userId === currentUser.userId && a.status === 'going') 
-                    ? styles.attendanceButtonActive 
-                    : {}
+                  styles.attendanceButton,
+                  event.attendees.some(
+                    a => a.userId === currentUser.userId && a.status === 'going'
+                  )
+                    ? styles.attendanceButtonActive
+                    : {},
                 ]}
                 onPress={() => updateAttendanceStatus(event.id, 'going')}
               >
                 <Text style={styles.attendanceButtonText}>Going</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.attendanceButton, 
-                  event.attendees.some(a => a.userId === currentUser.userId && a.status === 'maybe') 
-                    ? styles.attendanceButtonActive 
-                    : {}
+                  styles.attendanceButton,
+                  event.attendees.some(
+                    a => a.userId === currentUser.userId && a.status === 'maybe'
+                  )
+                    ? styles.attendanceButtonActive
+                    : {},
                 ]}
                 onPress={() => updateAttendanceStatus(event.id, 'maybe')}
               >
                 <Text style={styles.attendanceButtonText}>Maybe</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.attendanceButton, 
-                  event.attendees.some(a => a.userId === currentUser.userId && a.status === 'not going') 
-                    ? styles.attendanceButtonActive 
-                    : {}
+                  styles.attendanceButton,
+                  event.attendees.some(
+                    a =>
+                      a.userId === currentUser.userId &&
+                      a.status === 'not going'
+                  )
+                    ? styles.attendanceButtonActive
+                    : {},
                 ]}
                 onPress={() => updateAttendanceStatus(event.id, 'not going')}
               >
@@ -298,10 +321,16 @@ export default function IndexScreen(): React.ReactElement {
             {/* Likes */}
             <View style={styles.likesContainer}>
               <TouchableOpacity onPress={() => toggleLike(event.id)}>
-                <Ionicons 
-                  name={event.likes.includes(currentUser.userId) ? "heart" : "heart-outline"} 
-                  size={24} 
-                  color={event.likes.includes(currentUser.userId) ? "red" : "black"} 
+                <Ionicons
+                  name={
+                    event.likes.includes(currentUser.userId)
+                      ? 'heart'
+                      : 'heart-outline'
+                  }
+                  size={24}
+                  color={
+                    event.likes.includes(currentUser.userId) ? 'red' : 'black'
+                  }
                 />
               </TouchableOpacity>
               <Text style={styles.likesText}>{event.likes.length} Likes</Text>
@@ -311,11 +340,14 @@ export default function IndexScreen(): React.ReactElement {
             <View style={styles.attendeesContainer}>
               <Text style={styles.attendeesTitle}>Attendees</Text>
               {['going', 'maybe', 'not going'].map(status => {
-                const statusAttendees = event.attendees.filter(a => a.status === status);
+                const statusAttendees = event.attendees.filter(
+                  a => a.status === status
+                )
                 return statusAttendees.length > 0 ? (
                   <View key={status}>
                     <Text style={styles.attendeeStatusTitle}>
-                      {status.charAt(0).toUpperCase() + status.slice(1)}: {statusAttendees.length}
+                      {status.charAt(0).toUpperCase() + status.slice(1)}:{' '}
+                      {statusAttendees.length}
                     </Text>
                     {statusAttendees.map(attendee => (
                       <Text key={attendee.userId} style={styles.attendeeItem}>
@@ -323,7 +355,7 @@ export default function IndexScreen(): React.ReactElement {
                       </Text>
                     ))}
                   </View>
-                ) : null;
+                ) : null
               })}
             </View>
 
@@ -347,185 +379,413 @@ export default function IndexScreen(): React.ReactElement {
                 style={styles.commentInput}
                 value={commentText}
                 onChangeText={setCommentText}
-                placeholder="Add a comment..."
+                placeholder='Add a comment...'
                 multiline
               />
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.sendCommentButton}
                 onPress={() => addComment(event.id)}
               >
-                <Ionicons name="send" size={24} color="#e21d38" />
+                <Ionicons name='send' size={24} color='#e21d38' />
               </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       </Modal>
-    );
-  };
+    )
+  }
 
   const pickImage = async () => {
     // Check if permissions are already known
     if (mediaLibraryPermission === false) {
       Alert.alert(
-        'Permission Required', 
+        'Permission Required',
         'Please grant media library access in your device settings.'
-      );
-      return;
+      )
+      return
     }
 
     try {
       // Request permission if not already granted
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync()
+
       if (!permissionResult.granted) {
-        setMediaLibraryPermission(false);
+        setMediaLibraryPermission(false)
         Alert.alert(
-          'Permission Denied', 
+          'Permission Denied',
           'Sorry, we need camera roll permissions to make this work!'
-        );
-        return;
+        )
+        return
       }
 
       // Launch image picker with updated API
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images', 'videos'], 
+        mediaTypes: ['images', 'videos'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 1,
-      });
+      })
 
       if (!result.canceled) {
         // Handle the selected image
-        const selectedAsset = result.assets[0];
+        const selectedAsset = result.assets[0]
         setNewEvent(prevEvent => ({
           ...prevEvent,
-          imageUrl: selectedAsset.uri
-        }));
+          imageUrl: selectedAsset.uri,
+        }))
       }
     } catch (error) {
-      console.error('Error picking image:', error);
+      console.error('Error picking image:', error)
       Alert.alert(
-        'Image Selection Error', 
+        'Image Selection Error',
         'Unable to select image. Please try again.'
-      );
+      )
     }
-  };
+  }
 
-  const DatePickerModal = () => {
-    const [tempDate, setTempDate] = useState(new Date(selectedDate));
+  // const DatePickerModal = () => {
+  //   const [tempDate, setTempDate] = useState(new Date(selectedDate))
+  //   const [mode, setMode] = useState<'date' | 'time'>('date')
+  //   const [selectedHour, setSelectedHour] = useState(tempDate.getHours())
+  //   const [selectedMinute, setSelectedMinute] = useState(tempDate.getMinutes())
 
-    const handleDateChange = () => {
-      setSelectedDate(tempDate);
-      setNewEvent(prev => ({
-        ...prev,
-        date: tempDate
-      }));
-      setDatePickerVisible(false);
-    };
+  //   const daysInMonth = new Date(
+  //     tempDate.getFullYear(),
+  //     tempDate.getMonth() + 1,
+  //     0
+  //   ).getDate()
+  //   const firstDayOfMonth = new Date(
+  //     tempDate.getFullYear(),
+  //     tempDate.getMonth(),
+  //     1
+  //   ).getDay()
+  //   const monthNames = [
+  //     'January',
+  //     'February',
+  //     'March',
+  //     'April',
+  //     'May',
+  //     'June',
+  //     'July',
+  //     'August',
+  //     'September',
+  //     'October',
+  //     'November',
+  //     'December',
+  //   ]
 
-    return (
-      <RNModal
-        animationType="slide"
-        transparent={true}
-        visible={datePickerVisible}
-        onRequestClose={() => setDatePickerVisible(false)}
-      >
-        <View style={styles.centeredView}>
-          <View style={styles.modalView}>
-            <Text style={styles.modalTitle}>Select Date and Time</Text>
-            
-            {/* Date Input */}
-            <View style={styles.dateInputContainer}>
-              <Text style={styles.label}>Date</Text>
-              <View style={styles.dateInputRow}>
-                <TextInput
-                  style={styles.dateInput}
-                  value={format(tempDate, 'yyyy')}
-                  keyboardType="numeric"
-                  maxLength={4}
-                  onChangeText={(year) => {
-                    const newDate = new Date(tempDate);
-                    newDate.setFullYear(parseInt(year) || new Date().getFullYear());
-                    setTempDate(newDate);
-                  }}
-                  placeholder="Year"
-                />
-                <TextInput
-                  style={styles.dateInput}
-                  value={format(tempDate, 'MM')}
-                  keyboardType="numeric"
-                  maxLength={2}
-                  onChangeText={(month) => {
-                    const newDate = new Date(tempDate);
-                    newDate.setMonth(parseInt(month) - 1 || 0);
-                    setTempDate(newDate);
-                  }}
-                  placeholder="Month"
-                />
-                <TextInput
-                  style={styles.dateInput}
-                  value={format(tempDate, 'dd')}
-                  keyboardType="numeric"
-                  maxLength={2}
-                  onChangeText={(day) => {
-                    const newDate = new Date(tempDate);
-                    newDate.setDate(parseInt(day) || 1);
-                    setTempDate(newDate);
-                  }}
-                  placeholder="Day"
-                />
-              </View>
+  //   const handleDateChange = () => {
+  //     const now = new Date()
+  //     now.setSeconds(0, 0)
+  //     const tempDateNormalized = new Date(tempDate)
+  //     tempDateNormalized.setSeconds(0, 0)
 
-              {/* Time Input */}
-              <Text style={styles.label}>Time</Text>
-              <View style={styles.dateInputRow}>
-                <TextInput
-                  style={styles.dateInput}
-                  value={format(tempDate, 'HH')}
-                  keyboardType="numeric"
-                  maxLength={2}
-                  onChangeText={(hours) => {
-                    const newDate = new Date(tempDate);
-                    newDate.setHours(parseInt(hours) || 0);
-                    setTempDate(newDate);
-                  }}
-                  placeholder="Hours"
-                />
-                <TextInput
-                  style={styles.dateInput}
-                  value={format(tempDate, 'mm')}
-                  keyboardType="numeric"
-                  maxLength={2}
-                  onChangeText={(minutes) => {
-                    const newDate = new Date(tempDate);
-                    newDate.setMinutes(parseInt(minutes) || 0);
-                    setTempDate(newDate);
-                  }}
-                  placeholder="Minutes"
-                />
-              </View>
-            </View>
+  //     if (tempDateNormalized < now) {
+  //       Alert.alert('Invalid Date', 'Please select a future date and time')
+  //       return
+  //     }
 
-            {/* Action Buttons */}
-            <View style={styles.modalButtonContainer}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => setDatePickerVisible(false)}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonConfirm]}
-                onPress={handleDateChange}
-              >
-                <Text style={styles.modalButtonText}>Confirm</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </RNModal>
-    );
-  };
+  //     // Update both the selected date and the new event date
+  //     const updatedDate = new Date(tempDate)
+  //     setSelectedDate(updatedDate)
+  //     setNewEvent(prev => ({
+  //       ...prev,
+  //       date: updatedDate,
+  //     }))
+  //     setDatePickerVisible(false)
+  //   }
+
+  //   const validateAndSetDate = (
+  //     newDate: Date,
+  //     field: string,
+  //     value: string
+  //   ) => {
+  //     if (!isNaN(newDate.getTime())) {
+  //       setTempDate(newDate)
+  //       // Update only the temp date since we don't have setInputValues
+  //       // The input values should be managed separately if needed
+  //     }
+  //   }
+
+  //   return (
+  //     <RNModal
+  //       animationType='slide'
+  //       transparent={true}
+  //       visible={datePickerVisible}
+  //       onRequestClose={() => setDatePickerVisible(false)}
+  //     >
+  //       <View
+  //         style={{
+  //           flex: 1,
+  //           justifyContent: 'center',
+  //           alignItems: 'center',
+  //           backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  //         }}
+  //       >
+  //         <View
+  //           style={[
+  //             styles.modalContainer,
+  //             { backgroundColor: '#fff', borderRadius: 20, padding: 20 },
+  //           ]}
+  //         >
+  //           <Text
+  //             style={[
+  //               styles.modalTitle,
+  //               {
+  //                 fontSize: 24,
+  //                 fontWeight: '600',
+  //                 marginBottom: 20,
+  //                 color: '#333',
+  //                 textAlign: 'center',
+  //               },
+  //             ]}
+  //           >
+  //             Select Date and Time
+  //           </Text>
+
+  //           <View style={[styles.dateInputContainer, { marginBottom: 20 }]}>
+  //             <Text
+  //               style={[
+  //                 styles.label,
+  //                 { fontSize: 16, color: '#666', marginBottom: 8 },
+  //               ]}
+  //             >
+  //               Date
+  //             </Text>
+  //             <View
+  //               style={[
+  //                 styles.dateInputRow,
+  //                 { justifyContent: 'space-between' },
+  //               ]}
+  //             >
+  //               <TextInput
+  //                 style={[
+  //                   styles.dateInput,
+  //                   {
+  //                     flex: 2,
+  //                     backgroundColor: '#f5f5f5',
+  //                     borderRadius: 10,
+  //                     padding: 12,
+  //                     fontSize: 16,
+  //                     color: '#333',
+  //                     marginRight: 8,
+  //                   },
+  //                 ]}
+  //                 value={tempDate.getFullYear().toString()}
+  //                 keyboardType='numeric'
+  //                 maxLength={4}
+  //                 onChangeText={year => {
+  //                   const newYearNum = parseInt(year)
+  //                   const yearNum = parseInt(year)
+  //                   if (
+  //                     !isNaN(yearNum) &&
+  //                     yearNum >= new Date().getFullYear()
+  //                   ) {
+  //                     const newDate = new Date(tempDate)
+  //                     newDate.setFullYear(yearNum)
+  //                     validateAndSetDate(newDate, 'year', year)
+  //                   }
+  //                 }}
+  //                 placeholder='YYYY'
+  //               />
+  //               <TextInput
+  //                 style={[
+  //                   styles.dateInput,
+  //                   {
+  //                     flex: 1,
+  //                     backgroundColor: '#f5f5f5',
+  //                     borderRadius: 10,
+  //                     padding: 12,
+  //                     fontSize: 16,
+  //                     color: '#333',
+  //                     marginHorizontal: 4,
+  //                   },
+  //                 ]}
+  //                 value={(tempDate.getMonth() + 1).toString().padStart(2, '0')}
+  //                 keyboardType='numeric'
+  //                 maxLength={2}
+  //                 onChangeText={month => {
+  //                   const newMonthNum = parseInt(month)
+  //                   const monthNum = parseInt(month)
+  //                   if (!isNaN(monthNum) && monthNum >= 1 && monthNum <= 12) {
+  //                     const newDate = new Date(tempDate)
+  //                     newDate.setMonth(monthNum - 1)
+  //                     validateAndSetDate(newDate, 'month', month)
+  //                   }
+  //                 }}
+  //                 placeholder='MM'
+  //               />
+  //               <TextInput
+  //                 style={[
+  //                   styles.dateInput,
+  //                   {
+  //                     flex: 1,
+  //                     backgroundColor: '#f5f5f5',
+  //                     borderRadius: 10,
+  //                     padding: 12,
+  //                     fontSize: 16,
+  //                     color: '#333',
+  //                     marginLeft: 8,
+  //                   },
+  //                 ]}
+  //                 value={tempDate.getDate().toString().padStart(2, '0')}
+  //                 keyboardType='numeric'
+  //                 maxLength={2}
+  //                 onChangeText={day => {
+  //                   const newDayNum = parseInt(day)
+  //                   const dayNum = parseInt(day)
+  //                   const lastDayOfMonth = new Date(
+  //                     tempDate.getFullYear(),
+  //                     tempDate.getMonth() + 1,
+  //                     0
+  //                   ).getDate()
+  //                   if (
+  //                     !isNaN(dayNum) &&
+  //                     dayNum >= 1 &&
+  //                     dayNum <= lastDayOfMonth
+  //                   ) {
+  //                     const newDate = new Date(tempDate)
+  //                     newDate.setDate(dayNum)
+  //                     validateAndSetDate(newDate, 'day', day)
+  //                   }
+  //                 }}
+  //                 placeholder='DD'
+  //               />
+  //             </View>
+
+  //             <Text
+  //               style={[
+  //                 styles.label,
+  //                 {
+  //                   fontSize: 16,
+  //                   color: '#666',
+  //                   marginTop: 16,
+  //                   marginBottom: 8,
+  //                 },
+  //               ]}
+  //             >
+  //               Time
+  //             </Text>
+  //             <View style={[styles.dateInputRow, { justifyContent: 'center' }]}>
+  //               <TextInput
+  //                 style={[
+  //                   styles.dateInput,
+  //                   {
+  //                     flex: 1,
+  //                     backgroundColor: '#f5f5f5',
+  //                     borderRadius: 10,
+  //                     padding: 12,
+  //                     fontSize: 16,
+  //                     color: '#333',
+  //                     marginRight: 8,
+  //                     textAlign: 'center',
+  //                   },
+  //                 ]}
+  //                 value={tempDate.getHours().toString().padStart(2, '0')}
+  //                 keyboardType='numeric'
+  //                 maxLength={2}
+  //                 onChangeText={hours => {
+  //                   const newHoursNum = parseInt(hours)
+  //                   const hoursNum = parseInt(hours)
+  //                   if (!isNaN(hoursNum) && hoursNum >= 0 && hoursNum <= 23) {
+  //                     const newDate = new Date(tempDate)
+  //                     newDate.setHours(hoursNum)
+  //                     validateAndSetDate(newDate, 'hours', hours)
+  //                   }
+  //                 }}
+  //                 placeholder='HH'
+  //               />
+  //               <Text
+  //                 style={{ fontSize: 24, marginHorizontal: 8, color: '#333' }}
+  //               >
+  //                 :
+  //               </Text>
+  //               <TextInput
+  //                 style={[
+  //                   styles.dateInput,
+  //                   {
+  //                     flex: 1,
+  //                     backgroundColor: '#f5f5f5',
+  //                     borderRadius: 10,
+  //                     padding: 12,
+  //                     fontSize: 16,
+  //                     color: '#333',
+  //                     marginLeft: 8,
+  //                     textAlign: 'center',
+  //                   },
+  //                 ]}
+  //                 value={tempDate.getMinutes().toString().padStart(2, '0')}
+  //                 keyboardType='numeric'
+  //                 maxLength={2}
+  //                 onChangeText={minutes => {
+  //                   const newMinutesNum = parseInt(minutes)
+  //                   const minutesNum = parseInt(minutes)
+  //                   if (
+  //                     !isNaN(minutesNum) &&
+  //                     minutesNum >= 0 &&
+  //                     minutesNum <= 59
+  //                   ) {
+  //                     const newDate = new Date(tempDate)
+  //                     newDate.setMinutes(minutesNum)
+  //                     validateAndSetDate(newDate, 'minutes', minutes)
+  //                   }
+  //                 }}
+  //                 placeholder='MM'
+  //               />
+  //             </View>
+  //           </View>
+
+  //           <View
+  //             style={[
+  //               styles.modalButtonContainer,
+  //               {
+  //                 flexDirection: 'row',
+  //                 justifyContent: 'space-between',
+  //                 marginTop: 20,
+  //               },
+  //             ]}
+  //           >
+  //             <TouchableOpacity
+  //               style={[
+  //                 styles.modalButton,
+  //                 styles.modalButtonCancel,
+  //                 {
+  //                   backgroundColor: '#f5f5f5',
+  //                   paddingVertical: 12,
+  //                   paddingHorizontal: 24,
+  //                   borderRadius: 10,
+  //                   flex: 1,
+  //                   marginRight: 8,
+  //                 },
+  //               ]}
+  //               onPress={() => setDatePickerVisible(false)}
+  //             >
+  //               <Text style={styles.modalButtonText}>Cancel</Text>
+  //             </TouchableOpacity>
+  //             <TouchableOpacity
+  //               style={[
+  //                 styles.modalButton,
+  //                 styles.modalButtonConfirm,
+  //                 {
+  //                   backgroundColor: '#e21d38',
+  //                   paddingVertical: 12,
+  //                   paddingHorizontal: 24,
+  //                   borderRadius: 10,
+  //                   flex: 1,
+  //                   marginLeft: 8,
+  //                 },
+  //               ]}
+  //               onPress={handleDateChange}
+  //             >
+  //               <Text style={styles.modalButtonText}>Confirm</Text>
+  //             </TouchableOpacity>
+  //           </View>
+  //         </View>
+  //       </View>
+  //     </RNModal>
+  //   )
+  // }
 
   // Render method
   return (
@@ -534,43 +794,51 @@ export default function IndexScreen(): React.ReactElement {
         source={BACKGROUND_IMAGE} // Use the new background image
         defaultSource={{ uri: DEFAULT_EVENT_IMAGE }} // Fallback to default image
         style={styles.backgroundImage}
-        resizeMode="cover"
+        resizeMode='cover'
       >
         <View style={styles.overlay}>
           <FlatList
             data={events}
-            keyExtractor={(item) => item.id}
+            keyExtractor={item => item.id}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.eventCard}
                 onPress={() => setSelectedEvent(item)}
               >
                 {/* Add event image */}
-                <Image 
+                <Image
                   source={{ uri: item.imageUrl || DEFAULT_EVENT_IMAGE }}
                   style={styles.eventCardImage}
-                  resizeMode="cover"
+                  resizeMode='cover'
                 />
-                
+
                 <Text style={styles.eventTitle}>{item.title}</Text>
                 <Text style={styles.eventDate}>
                   {format(item.date, 'MMMM dd, yyyy HH:mm')}
                 </Text>
                 <Text style={styles.eventLocation}>{item.location}</Text>
                 <Text style={styles.eventDescription}>{item.description}</Text>
-                
+
                 {/* Quick event stats */}
                 <View style={styles.eventCardFooter}>
                   <View style={styles.eventCardStats}>
-                    <Ionicons name="heart" size={16} color="red" />
-                    <Text style={styles.eventCardStatsText}>{item.likes.length}</Text>
+                    <Ionicons name='heart' size={16} color='red' />
+                    <Text style={styles.eventCardStatsText}>
+                      {item.likes.length}
+                    </Text>
                   </View>
                   <View style={styles.eventCardStats}>
-                    <Ionicons name="chatbubble" size={16} color="black" />
-                    <Text style={styles.eventCardStatsText}>{item.comments.length}</Text>
+                    <Ionicons
+                      name='chatbubble-outline'
+                      size={16}
+                      color='black'
+                    />
+                    <Text style={styles.eventCardStatsText}>
+                      {item.comments.length}
+                    </Text>
                   </View>
                   <View style={styles.eventCardStats}>
-                    <Ionicons name="people" size={16} color="black" />
+                    <Ionicons name='people' size={16} color='black' />
                     <Text style={styles.eventCardStatsText}>
                       {item.attendees.filter(a => a.status === 'going').length}
                     </Text>
@@ -594,21 +862,21 @@ export default function IndexScreen(): React.ReactElement {
             onBackdropPress={() => setModalVisible(false)}
             style={styles.createEventModal}
             backdropOpacity={0.5}
-            animationIn="slideInUp"
-            animationOut="slideOutDown"
+            animationIn='slideInUp'
+            animationOut='slideOutDown'
           >
             <View style={styles.modalContainer}>
-              <ScrollView 
+              <ScrollView
                 contentContainerStyle={styles.modalScrollContent}
-                keyboardShouldPersistTaps="handled"
+                keyboardShouldPersistTaps='handled'
                 showsVerticalScrollIndicator={true}
               >
                 <View style={styles.modalContent}>
-                  <TouchableOpacity 
-                    style={styles.closeButton} 
+                  <TouchableOpacity
+                    style={styles.closeButton}
                     onPress={() => setModalVisible(false)}
                   >
-                    <Ionicons name="close" size={24} color="white" />
+                    <Ionicons name='close' size={24} color='white' />
                   </TouchableOpacity>
 
                   <Text style={styles.modalTitle}>Create New Event</Text>
@@ -616,66 +884,72 @@ export default function IndexScreen(): React.ReactElement {
                   <Text style={styles.label}>Event Title</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="Enter event title"
-                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    placeholder='Enter event title'
+                    placeholderTextColor='rgba(255,255,255,0.6)'
                     value={newEvent.title}
-                    onChangeText={(text) => setNewEvent(prev => ({
-                      ...prev,
-                      title: text
-                    }))}
+                    onChangeText={text =>
+                      setNewEvent(prev => ({
+                        ...prev,
+                        title: text,
+                      }))
+                    }
                   />
 
                   <Text style={styles.label}>Date and Time</Text>
                   <DateTimeInput />
-                  
+
                   <Text style={styles.label}>Location</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="Enter event location"
-                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    placeholder='Enter event location'
+                    placeholderTextColor='rgba(255,255,255,0.6)'
                     value={newEvent.location}
-                    onChangeText={(text) => setNewEvent(prev => ({
-                      ...prev,
-                      location: text
-                    }))}
+                    onChangeText={text =>
+                      setNewEvent(prev => ({
+                        ...prev,
+                        location: text,
+                      }))
+                    }
                   />
 
                   <Text style={styles.label}>Description</Text>
                   <TextInput
                     style={[styles.input, styles.multilineInput]}
-                    placeholder="Enter event description"
-                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    placeholder='Enter event description'
+                    placeholderTextColor='rgba(255,255,255,0.6)'
                     multiline={true}
                     numberOfLines={4}
                     value={newEvent.description}
-                    onChangeText={(text) => setNewEvent(prev => ({
-                      ...prev,
-                      description: text
-                    }))}
+                    onChangeText={text =>
+                      setNewEvent(prev => ({
+                        ...prev,
+                        description: text,
+                      }))
+                    }
                   />
 
                   <Text style={styles.label}>Event Image</Text>
                   <View style={styles.imagePickerContainer}>
-                    <TouchableOpacity 
-                      style={styles.imagePickerButton} 
+                    <TouchableOpacity
+                      style={styles.imagePickerButton}
                       onPress={pickImage}
                     >
-                      <Ionicons name="image-outline" size={24} color="white" />
+                      <Ionicons name='image-outline' size={24} color='white' />
                       <Text style={styles.imagePickerText}>
                         {newEvent.imageUrl ? 'Change Image' : 'Select Image'}
                       </Text>
                     </TouchableOpacity>
 
                     {newEvent.imageUrl && (
-                      <Image 
-                        source={{ uri: newEvent.imageUrl }} 
-                        style={styles.selectedImage} 
+                      <Image
+                        source={{ uri: newEvent.imageUrl }}
+                        style={styles.selectedImage}
                       />
                     )}
                   </View>
 
-                  <TouchableOpacity 
-                    style={styles.createEventButton} 
+                  <TouchableOpacity
+                    style={styles.createEventButton}
                     onPress={addEvent}
                   >
                     <Text style={styles.createEventButtonText}>
@@ -689,7 +963,8 @@ export default function IndexScreen(): React.ReactElement {
 
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => setModalVisible(true)}>
+            onPress={() => setModalVisible(true)}
+          >
             <Text style={styles.addButtonText}>+</Text>
           </TouchableOpacity>
 
@@ -697,16 +972,43 @@ export default function IndexScreen(): React.ReactElement {
           {selectedEvent && renderEventDetails(selectedEvent)}
 
           {/* Custom Date Picker Modal */}
-          <DatePickerModal />
+          {/* <DatePickerModal /> */}
         </View>
       </ImageBackground>
       {/* <Text>Events Screen</Text> */}
     </View>
-  );
+  )
 }
 
 // Styles
 const styles = StyleSheet.create({
+  dateInputContainer: {
+    marginBottom: 20,
+    width: '100%',
+  },
+  dateInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  dateInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+  },
   container: {
     flex: 1,
   },
@@ -1060,81 +1362,147 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  centeredView: {
-    flex: 1,
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  calendarTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  calendarDaysHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 10,
+  },
+  calendarDayHeader: {
+    width: 40,
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 14,
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  calendarDay: {
+    width: '14.28%',
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    marginVertical: 2,
   },
-  modalView: {
-    width: '90%',
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
+  calendarDayText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  selectedDay: {
+    backgroundColor: '#e21d38',
+    borderRadius: 20,
+  },
+  selectedDayText: {
+    color: '#fff',
+  },
+  pastDay: {
+    opacity: 0.5,
+  },
+  pastDayText: {
+    color: '#999',
+  },
+  clockContainer: {
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    marginVertical: 20,
   },
-  dateInputContainer: {
-    width: '100%',
-    marginBottom: 20,
-  },
-  dateInputRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  dateInput: {
-    borderWidth: 1,
+  clockFace: {
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    borderWidth: 2,
     borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
-    width: '30%',
-    textAlign: 'center',
+    position: 'relative',
   },
-  modalButtonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+  clockCenter: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#e21d38',
+    top: '50%',
+    left: '50%',
+    marginLeft: -4,
+    marginTop: -4,
+  },
+  clockNumber: {
+    position: 'absolute',
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 15,
+  },
+  clockNumberText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  selectedTime: {
+    backgroundColor: '#e21d38',
+  },
+  selectedTimeText: {
+    color: '#fff',
+  },
+  timeDisplay: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    marginVertical: 10,
+  },
+  switchModeButton: {
+    padding: 10,
+    alignItems: 'center',
+  },
+  switchModeButtonText: {
+    color: '#e21d38',
+    fontSize: 16,
   },
   modalButton: {
-    borderRadius: 5,
-    padding: 10,
-    elevation: 2,
-    width: '45%',
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    marginHorizontal: 8,
   },
   modalButtonCancel: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f5f5f5',
   },
   modalButtonConfirm: {
     backgroundColor: '#e21d38',
   },
-  modalButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+  modalButtonTextCancel: {
+    color: '#fff',
+    fontSize: 16,
     textAlign: 'center',
   },
-});
+})
 
 type EventComment = {
-  id: string;
-  userId: string;
-  userName: string;
-  text: string;
-  timestamp: Date;
-};
+  id: string
+  userId: string
+  userName: string
+  text: string
+  timestamp: Date
+}
 
 type EventAttendee = {
-  userId: string;
-  userName: string;
-  status: 'going' | 'maybe' | 'not going';
-};
+  userId: string
+  userName: string
+  status: 'going' | 'maybe' | 'not going'
+}
 
 type Event = {
   id: string

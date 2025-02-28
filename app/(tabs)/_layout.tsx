@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 // Import the logo using the correct path
-const LogoImage = require('../../assets/logo.jpg');
+const LogoImage = require('../../assets/images/logo.jpg');
 
 // Custom Header Component
 const CustomHeader = () => {

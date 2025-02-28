@@ -4,7 +4,7 @@
     "slug": "bssb",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/sunderland-afc-logo.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -13,7 +13,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        // "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/sunderland-afc-logo.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
