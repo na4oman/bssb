@@ -302,8 +302,11 @@ export default function IndexScreen(): React.ReactElement | any {
         <ScrollView style={styles.eventDetailsModalContent}>
           {/* Event Header */}
           <View style={styles.eventDetailsHeader}>
-            <TouchableOpacity onPress={() => setSelectedEvent(null)}>
-              <Ionicons name='close' size={24} color='black' />
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setSelectedEvent(null)}
+            >
+              <Ionicons name='close' size={24} color='#e21d38' />
             </TouchableOpacity>
           </View>
 
@@ -334,30 +337,46 @@ export default function IndexScreen(): React.ReactElement | any {
                   styles.attendanceButton,
                   selectedEvent.attendees.some(
                     a => a.userId === currentUser.userId && a.status === 'going'
-                  )
-                    ? styles.attendanceButtonActive
-                    : {},
+                  ) && styles.attendanceButtonActive,
                 ]}
                 onPress={() =>
                   updateAttendanceStatus(selectedEvent.id, 'going')
                 }
               >
-                <Text style={styles.attendanceButtonText}>Going</Text>
+                <Text
+                  style={[
+                    styles.attendanceButtonText,
+                    selectedEvent.attendees.some(
+                      a =>
+                        a.userId === currentUser.userId && a.status === 'going'
+                    ) && { color: '#fff' },
+                  ]}
+                >
+                  Going
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   styles.attendanceButton,
                   selectedEvent.attendees.some(
                     a => a.userId === currentUser.userId && a.status === 'maybe'
-                  )
-                    ? styles.attendanceButtonActive
-                    : {},
+                  ) && styles.attendanceButtonActive,
                 ]}
                 onPress={() =>
                   updateAttendanceStatus(selectedEvent.id, 'maybe')
                 }
               >
-                <Text style={styles.attendanceButtonText}>Maybe</Text>
+                <Text
+                  style={[
+                    styles.attendanceButtonText,
+                    selectedEvent.attendees.some(
+                      a =>
+                        a.userId === currentUser.userId && a.status === 'maybe'
+                    ) && { color: '#fff' },
+                  ]}
+                >
+                  Maybe
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -366,15 +385,24 @@ export default function IndexScreen(): React.ReactElement | any {
                     a =>
                       a.userId === currentUser.userId &&
                       a.status === 'not going'
-                  )
-                    ? styles.attendanceButtonActive
-                    : {},
+                  ) && styles.attendanceButtonActive,
                 ]}
                 onPress={() =>
                   updateAttendanceStatus(selectedEvent.id, 'not going')
                 }
               >
-                <Text style={styles.attendanceButtonText}>Not Going</Text>
+                <Text
+                  style={[
+                    styles.attendanceButtonText,
+                    selectedEvent.attendees.some(
+                      a =>
+                        a.userId === currentUser.userId &&
+                        a.status === 'not going'
+                    ) && { color: '#fff' },
+                  ]}
+                >
+                  Not Going
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -450,7 +478,7 @@ export default function IndexScreen(): React.ReactElement | any {
                 style={styles.sendCommentButton}
                 onPress={() => addComment(selectedEvent.id)}
               >
-                <Ionicons name='send' size={24} color='#e21d38' />
+                <Ionicons name='send' size={20} color='#fff' />
               </TouchableOpacity>
             </View>
           </View>
@@ -806,6 +834,8 @@ const styles = StyleSheet.create({
     top: 10,
     right: 10,
     zIndex: 10,
+    backgroundColor: '#fff',
+    borderRadius: 5,
   },
   closeIcon: {
     color: '#e21d38', // Sunderland red for close icon
@@ -897,68 +927,69 @@ const styles = StyleSheet.create({
   },
   eventDetailsModalContent: {
     backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    // borderTopLeftRadius: 25,
+    // borderTopRightRadius: 25,
+    maxHeight: '90%',
   },
   eventDetailsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    // marginBottom: 10,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 1,
+    padding: 15,
   },
   eventDetailImage: {
     width: '100%',
-    height: 200,
-    borderRadius: 10,
-    marginBottom: 20,
-  },
-  eventCardImage: {
-    width: '100%',
-    height: 150,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    height: 250,
   },
   eventDetailsContent: {
     padding: 20,
   },
   eventDetailsTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#e21d38',
-    marginBottom: 10,
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 15,
   },
   eventDetailsDate: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 10,
+    marginBottom: 15,
+    fontWeight: '500',
   },
   eventDetailsLocation: {
     fontSize: 16,
     color: '#333',
-    marginBottom: 10,
+    marginBottom: 20,
+    fontWeight: '500',
   },
   eventDetailsDescription: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 20,
+    marginBottom: 25,
+    lineHeight: 24,
   },
   attendanceButtonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 25,
+    backgroundColor: '#f8f8f8',
+    borderRadius: 12,
+    padding: 5,
   },
   attendanceButton: {
     flex: 1,
-    padding: 15,
-    borderRadius: 5,
-    marginHorizontal: 5,
-    backgroundColor: '#f5f5f9',
+    padding: 12,
+    borderRadius: 10,
+    marginHorizontal: 3,
   },
   attendanceButtonActive: {
     backgroundColor: '#e21d38',
   },
   attendanceButtonText: {
     fontSize: 16,
-    color: '#333',
+    fontWeight: '600',
+    color: '#666',
     textAlign: 'center',
   },
   likesContainer: {
@@ -991,56 +1022,62 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   commentsContainer: {
-    marginBottom: 20,
+    marginTop: 10,
   },
   commentsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#e21d38',
-    marginBottom: 10,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 15,
   },
   commentItem: {
     padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    backgroundColor: '#f8f8f8',
+    borderRadius: 12,
+    marginBottom: 10,
   },
   commentUserName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#333',
+    marginBottom: 5,
   },
   commentText: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#666',
+    lineHeight: 22,
   },
   commentTimestamp: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#999',
-    marginTop: 5,
+    marginTop: 8,
   },
   addCommentContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 15,
     borderTopWidth: 1,
-    borderTopColor: '#ddd',
+    borderTopColor: '#f0f0f0',
+    backgroundColor: 'white',
   },
   commentInput: {
     flex: 1,
     height: 40,
-    padding: 10,
+    padding: 12,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
+    backgroundColor: '#f8f8f8',
+    borderRadius: 20,
     marginRight: 10,
+    paddingHorizontal: 15,
   },
   sendCommentButton: {
     backgroundColor: '#e21d38',
-    padding: 10,
-    borderRadius: 5,
+    padding: 12,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    width: 44,
+    height: 44,
   },
   dateButton: {
     borderWidth: 1,
@@ -1192,6 +1229,12 @@ const styles = StyleSheet.create({
   footerButtonText: {
     fontSize: 16,
     color: '#666',
+  },
+  eventCardImage: {
+    width: '100%',
+    height: 150,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
   },
 })
 
