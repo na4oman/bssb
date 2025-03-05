@@ -17,9 +17,7 @@
         "foregroundImage": "./assets/images/sunderland-afc-logo.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ],
+      "permissions": ["android.permission.RECORD_AUDIO"],
       "package": "com.atanas_irikev.bssb"
     },
     "web": {
@@ -42,6 +40,14 @@
         "expo-image-picker",
         {
           "photosPermission": "The app accesses your photos to let you share them with your friends."
+        }
+      ],
+      [
+        "@react-native-community/datetimepicker",
+        {
+          "android": {
+            "version": "6.7.3"
+          }
         }
       ]
     ],

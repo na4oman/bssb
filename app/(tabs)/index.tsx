@@ -19,6 +19,7 @@ import { format } from 'date-fns'
 import { Ionicons } from '@expo/vector-icons'
 import Modal from 'react-native-modal'
 import * as ImagePicker from 'expo-image-picker'
+import DateTimePickerModal from 'react-native-modal-datetime-picker'
 
 // Custom type definition for location
 type Location = {
@@ -84,13 +85,9 @@ export default function IndexScreen(): React.ReactElement | any {
   const [mediaLibraryPermission, setMediaLibraryPermission] = useState<
     boolean | null
   >(null)
-  const [datePickerVisible, setDatePickerVisible] = useState(false)
-  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [showTimePicker, setShowTimePicker] = useState(false)
   const [mode, setMode] = useState<'date' | 'time'>('date')
-  const [tempDate, setTempDate] = useState(new Date())
-  const [selectedHour, setSelectedHour] = useState(new Date().getHours())
-  const [selectedMinute, setSelectedMinute] = useState(new Date().getMinutes())
-  const [timeSubMode, setTimeSubMode] = useState<'hours' | 'minutes'>('hours')
 
   const monthNames = [
     'January',
@@ -106,163 +103,6 @@ export default function IndexScreen(): React.ReactElement | any {
     'November',
     'December',
   ]
-
-  const renderCalendar = () => {
-    const firstDayOfMonth = new Date(
-      tempDate.getFullYear(),
-      tempDate.getMonth(),
-      1
-    )
-    const lastDayOfMonth = new Date(
-      tempDate.getFullYear(),
-      tempDate.getMonth() + 1,
-      0
-    )
-    const startingDay = firstDayOfMonth.getDay()
-    const daysInMonth = lastDayOfMonth.getDate()
-    const days = []
-
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < startingDay; i++) {
-      days.push(<View key={`empty-${i}`} style={styles.dayCell} />)
-    }
-
-    // Add cells for each day of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(tempDate.getFullYear(), tempDate.getMonth(), day)
-      const isSelected = date.toDateString() === selectedDate.toDateString()
-
-      days.push(
-        <TouchableOpacity
-          key={day}
-          style={[styles.dayCell, isSelected && styles.selectedDayCell]}
-          onPress={() => {
-            const newDate = new Date(selectedDate)
-            newDate.setFullYear(tempDate.getFullYear())
-            newDate.setMonth(tempDate.getMonth())
-            newDate.setDate(day)
-            setSelectedDate(newDate)
-          }}
-        >
-          <Text style={[styles.dayText, isSelected && styles.selectedDayText]}>
-            {day}
-          </Text>
-        </TouchableOpacity>
-      )
-    }
-
-    return <View style={styles.calendarGrid}>{days}</View>
-  }
-
-  const renderAnalogClock = () => {
-    const numbers =
-      timeSubMode === 'hours'
-        ? Array.from({ length: 12 }, (_, i) => i + 1)
-        : Array.from({ length: 12 }, (_, i) => i * 5)
-
-    return (
-      <View style={styles.timePickerContainer}>
-        <View style={styles.timeTabs}>
-          <TouchableOpacity
-            style={[
-              styles.timeTab,
-              timeSubMode === 'hours' && styles.activeTimeTab,
-            ]}
-            onPress={() => setTimeSubMode('hours')}
-          >
-            <Text
-              style={[
-                styles.timeTabText,
-                timeSubMode === 'hours' && styles.activeTimeTabText,
-              ]}
-            >
-              {String(selectedHour).padStart(2, '0')}
-            </Text>
-          </TouchableOpacity>
-          <Text style={styles.timeTabSeparator}>:</Text>
-          <TouchableOpacity
-            style={[
-              styles.timeTab,
-              timeSubMode === 'minutes' && styles.activeTimeTab,
-            ]}
-            onPress={() => setTimeSubMode('minutes')}
-          >
-            <Text
-              style={[
-                styles.timeTabText,
-                timeSubMode === 'minutes' && styles.activeTimeTabText,
-              ]}
-            >
-              {String(selectedMinute).padStart(2, '0')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.clockContainer}>
-          <View style={styles.clockFace}>
-            {numbers.map(num => {
-              const angle =
-                (num * (timeSubMode === 'hours' ? 30 : 6) - 90) *
-                (Math.PI / 180)
-              const x = Math.cos(angle) * 80 + 100
-              const y = Math.sin(angle) * 80 + 100
-
-              return (
-                <TouchableOpacity
-                  key={`${timeSubMode}-${num}`}
-                  style={[styles.clockNumber, { left: x - 15, top: y - 15 }]}
-                  onPress={() => handleTimeChange(num)}
-                >
-                  <Text
-                    style={[
-                      styles.clockNumberText,
-                      (timeSubMode === 'hours'
-                        ? selectedHour === num
-                        : selectedMinute === num) && styles.selectedTime,
-                    ]}
-                  >
-                    {String(num).padStart(2, '0')}
-                  </Text>
-                </TouchableOpacity>
-              )
-            })}
-            <View style={styles.clockCenter} />
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.confirmTimeButton, { marginTop: 20 }]}
-          onPress={handleDateChange}
-        >
-          <Text style={styles.confirmButtonText}>Confirm</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
-
-  const handleDateChange = () => {
-    console.log('Confirming time:', { selectedHour, selectedMinute })
-    const newDate = new Date(selectedDate)
-    newDate.setHours(selectedHour)
-    newDate.setMinutes(selectedMinute)
-    console.log('New date:', newDate)
-
-    setSelectedDate(newDate)
-    setNewEvent(prev => ({ ...prev, date: newDate }))
-
-    setDatePickerVisible(false)
-  }
-
-  const handleTimeChange = (value: number) => {
-    console.log('Time change:', { mode: timeSubMode, value })
-    if (timeSubMode === 'hours') {
-      setSelectedHour(value)
-      console.log('Set hour to:', value)
-    } else {
-      setSelectedMinute(value)
-      console.log('Set minute to:', value)
-    }
-  }
 
   const addEvent = () => {
     const event: Event = {
@@ -369,12 +209,35 @@ export default function IndexScreen(): React.ReactElement | any {
     )
   }
 
-  const showDateTimePicker = () => {
-    setDatePickerVisible(true)
+  const onChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false)
+      setShowTimePicker(false)
+    }
+
+    if (selectedDate) {
+      const currentDate = selectedDate
+      if (mode === 'date') {
+        // Keep the existing time when changing date
+        const newDate = new Date(currentDate)
+        newDate.setHours(newEvent.date.getHours())
+        newDate.setMinutes(newEvent.date.getMinutes())
+        setNewEvent(prev => ({ ...prev, date: newDate }))
+        if (Platform.OS === 'android') {
+          setShowTimePicker(true)
+          setMode('time')
+        }
+      } else {
+        // Update only time
+        const newDate = new Date(newEvent.date)
+        newDate.setHours(currentDate.getHours())
+        newDate.setMinutes(currentDate.getMinutes())
+        setNewEvent(prev => ({ ...prev, date: newDate }))
+      }
+    }
   }
 
   const DateTimeInput = () => {
-    // Web-specific date input
     if (Platform.OS === 'web') {
       return (
         <input
@@ -396,13 +259,31 @@ export default function IndexScreen(): React.ReactElement | any {
       )
     }
 
-    // Mobile/Native date selection
     return (
-      <TouchableOpacity style={styles.dateButton} onPress={showDateTimePicker}>
-        <Text style={styles.dateButtonText}>
-          {format(newEvent.date, 'MMMM dd, yyyy HH:mm')}
-        </Text>
-      </TouchableOpacity>
+      <View>
+        <TouchableOpacity
+          style={styles.dateButton}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <Text style={styles.dateButtonText}>
+            {format(newEvent.date, 'MMMM dd, yyyy HH:mm')}
+          </Text>
+        </TouchableOpacity>
+
+        <DateTimePickerModal
+          isVisible={showDatePicker}
+          mode='datetime'
+          onConfirm={date => {
+            setNewEvent(prev => ({ ...prev, date }))
+            setShowDatePicker(false)
+          }}
+          onCancel={() => setShowDatePicker(false)}
+          date={newEvent.date}
+          accentColor='#e21d38'
+          // display='spinner'
+          // textColor='red'
+        />
+      </View>
     )
   }
 
@@ -627,276 +508,6 @@ export default function IndexScreen(): React.ReactElement | any {
     }
   }
 
-  const DatePickerModal = () => {
-    const [tempDate, setTempDate] = useState<Date>(new Date(selectedDate))
-    const [mode, setMode] = useState<'date' | 'time'>('date')
-    const [selectedHour, setSelectedHour] = useState<number>(
-      tempDate.getHours()
-    )
-    const [selectedMinute, setSelectedMinute] = useState<number>(
-      tempDate.getMinutes()
-    )
-
-    const daysInMonth = new Date(
-      tempDate.getFullYear(),
-      tempDate.getMonth() + 1,
-      0
-    ).getDate()
-    const firstDayOfMonth = new Date(
-      tempDate.getFullYear(),
-      tempDate.getMonth(),
-      1
-    ).getDay()
-    const monthNames = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ]
-
-    const handleDateChange = (): void => {
-      const now = new Date()
-      now.setSeconds(0, 0)
-      const tempDateNormalized = new Date(tempDate)
-      tempDateNormalized.setSeconds(0, 0)
-
-      if (tempDateNormalized < now) {
-        Alert.alert('Invalid Date', 'Please select a future date and time')
-        return
-      }
-
-      // Update both the selected date and the new event date
-      const updatedDate = new Date(tempDate)
-      setSelectedDate(updatedDate)
-      setNewEvent(prev => ({
-        ...prev,
-        date: updatedDate,
-      }))
-      setDatePickerVisible(false)
-    }
-
-    const handleTimeChange = (value: number): void => {
-      if (timeSubMode === 'hours') {
-        setSelectedHour(value)
-      } else {
-        setSelectedMinute(value)
-      }
-    }
-
-    const renderCalendar = (): React.ReactNode[] => {
-      const days = []
-      const blanks = []
-
-      // Add blank spaces for days before the first day of the month
-      for (let i = 0; i < firstDayOfMonth; i++) {
-        blanks.push(
-          <View key={`blank-${i}`} style={styles.calendarDay}>
-            <Text> </Text>
-          </View>
-        )
-      }
-
-      // Add the days of the month
-      for (let d = 1; d <= daysInMonth; d++) {
-        const date = new Date(tempDate.getFullYear(), tempDate.getMonth(), d)
-        const isSelected =
-          d === tempDate.getDate() &&
-          tempDate.getMonth() === date.getMonth() &&
-          tempDate.getFullYear() === date.getFullYear()
-
-        days.push(
-          <TouchableOpacity
-            key={d}
-            style={[styles.calendarDay, isSelected && styles.selectedDay]}
-            onPress={() => {
-              const newDate = new Date(tempDate)
-              newDate.setDate(d)
-              setTempDate(newDate)
-            }}
-          >
-            <Text
-              style={[
-                styles.calendarDayText,
-                isSelected && styles.selectedDayText,
-              ]}
-            >
-              {d}
-            </Text>
-          </TouchableOpacity>
-        )
-      }
-
-      return [...blanks, ...days]
-    }
-
-    const renderAnalogClock = (): React.ReactNode => {
-      const numbers =
-        timeSubMode === 'hours'
-          ? Array.from({ length: 12 }, (_, i) => i + 1)
-          : Array.from({ length: 12 }, (_, i) => i * 5)
-
-      return (
-        <View style={styles.clockContainer}>
-          <View style={styles.clockFace}>
-            {numbers.map(num => {
-              const angle =
-                (num * (timeSubMode === 'hours' ? 30 : 6) - 90) *
-                (Math.PI / 180)
-              const x = Math.cos(angle) * 80 + 100
-              const y = Math.sin(angle) * 80 + 100
-
-              return (
-                <TouchableOpacity
-                  key={`${timeSubMode}-${num}`}
-                  style={[styles.clockNumber, { left: x - 15, top: y - 15 }]}
-                  onPress={() => handleTimeChange(num)}
-                >
-                  <Text
-                    style={[
-                      styles.clockNumberText,
-                      (timeSubMode === 'hours'
-                        ? selectedHour === num
-                        : selectedMinute === num) && styles.selectedTime,
-                    ]}
-                  >
-                    {String(num).padStart(2, '0')}
-                  </Text>
-                </TouchableOpacity>
-              )
-            })}
-            <View style={styles.clockCenter} />
-          </View>
-        </View>
-      )
-    }
-
-    // Return the modal UI
-    return (
-      <RNModal
-        visible={datePickerVisible}
-        transparent={true}
-        animationType='slide'
-        onRequestClose={() => setDatePickerVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.datePickerContainer}>
-            <View style={styles.datePickerHeader}>
-              <TouchableOpacity
-                style={[
-                  styles.modeButton,
-                  mode === 'date' && styles.activeModeButton,
-                ]}
-                onPress={() => setMode('date')}
-              >
-                <Text
-                  style={[
-                    styles.modeButtonText,
-                    mode === 'date' && styles.activeModeText,
-                  ]}
-                >
-                  Date
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.modeButton,
-                  mode === 'time' && styles.activeModeButton,
-                ]}
-                onPress={() => setMode('time')}
-              >
-                <Text
-                  style={[
-                    styles.modeButtonText,
-                    mode === 'time' && styles.activeModeText,
-                  ]}
-                >
-                  Time
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {mode === 'date' ? (
-              <View style={styles.calendarContainer}>
-                <View style={styles.calendarHeader}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      const newDate = new Date(tempDate)
-                      newDate.setMonth(tempDate.getMonth() - 1)
-                      setTempDate(newDate)
-                    }}
-                  >
-                    <Ionicons name='chevron-back' size={24} color='#e21d38' />
-                  </TouchableOpacity>
-                  <Text style={styles.monthYearText}>
-                    {monthNames[tempDate.getMonth()]} {tempDate.getFullYear()}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      const newDate = new Date(tempDate)
-                      newDate.setMonth(tempDate.getMonth() + 1)
-                      setTempDate(newDate)
-                    }}
-                  >
-                    <Ionicons
-                      name='chevron-forward'
-                      size={24}
-                      color='#e21d38'
-                    />
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.weekDaysContainer}>
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(
-                    day => (
-                      <Text key={day} style={styles.weekDayText}>
-                        {day}
-                      </Text>
-                    )
-                  )}
-                </View>
-                <View style={styles.daysContainer}>{renderCalendar()}</View>
-              </View>
-            ) : (
-              <View style={styles.timePickerContainer}>
-                <Text style={styles.selectedTimeText}>
-                  {String(selectedHour).padStart(2, '0')}:
-                  {String(selectedMinute).padStart(2, '0')}
-                </Text>
-                {renderAnalogClock()}
-              </View>
-            )}
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.footerButton}
-                onPress={() => setDatePickerVisible(false)}
-              >
-                <Text style={styles.footerButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.footerButton, styles.confirmButton]}
-                onPress={handleDateChange}
-              >
-                <Text
-                  style={[styles.footerButtonText, styles.confirmButtonText]}
-                >
-                  Confirm
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </RNModal>
-    )
-  }
-
   // Render method
   return (
     <View style={styles.container}>
@@ -1080,9 +691,6 @@ export default function IndexScreen(): React.ReactElement | any {
 
           {/* Event Details Modal */}
           {selectedEvent && renderEventDetails()}
-
-          {/* Custom Date Picker Modal */}
-          {datePickerVisible && <DatePickerModal />}
         </View>
       </ImageBackground>
       {/* <Text>Events Screen</Text> */}
@@ -1092,167 +700,6 @@ export default function IndexScreen(): React.ReactElement | any {
 
 // Styles
 const styles = StyleSheet.create({
-  // Date Picker Modal Styles
-  datePickerModal: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  datePickerContainer: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    width: '90%',
-    maxWidth: 400,
-  },
-  calendarContainer: {
-    marginBottom: 20,
-  },
-  calendarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  monthYearText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  weekDaysContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 10,
-  },
-  weekDayText: {
-    width: 40,
-    textAlign: 'center',
-    color: '#666',
-    fontWeight: '600',
-  },
-  daysContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-  },
-  calendarDay: {
-    width: '14.28%',
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: 2,
-  },
-  selectedDay: {
-    backgroundColor: '#e21d38',
-    borderRadius: 20,
-  },
-  calendarDayText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  selectedDayText: {
-    color: 'white',
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  datePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-  },
-  modeButton: {
-    padding: 10,
-    borderRadius: 5,
-  },
-  activeModeButton: {
-    backgroundColor: '#e21d38',
-  },
-  modeButtonText: {
-    fontSize: 16,
-  },
-  activeModeText: {
-    color: 'white',
-  },
-  timePickerContainer: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  timeDisplay: {
-    marginBottom: 30,
-  },
-  selectedTimeText: {
-    fontSize: 36,
-    fontWeight: '500',
-    color: '#333',
-  },
-  clockContainer: {
-    width: 240,
-    height: 240,
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  clockFace: {
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    borderWidth: 2,
-    borderColor: '#ddd',
-    position: 'relative',
-  },
-  clockNumber: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-    paddingLeft: 20,
-    paddingTop: 20,
-  },
-  clockNumberText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  selectedTime: {
-    backgroundColor: '#e21d38',
-    color: 'white',
-  },
-  clockCenter: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    backgroundColor: '#e21d38',
-    borderRadius: 4,
-    left: '50%',
-    top: '50%',
-    marginLeft: -4,
-    marginTop: -4,
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    width: '100%',
-  },
-  modalButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    marginLeft: 10,
-  },
-  modalButtonText: {
-    fontSize: 16,
-    color: '#e21d38',
-  },
-  confirmButton: {
-    backgroundColor: '#e21d38',
-    borderRadius: 5,
-  },
   container: {
     flex: 1,
   },

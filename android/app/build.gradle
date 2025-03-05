@@ -86,7 +86,7 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.bssb"
+    namespace 'com.atanas_irikev.bssb'
     defaultConfig {
         applicationId 'com.atanas_irikev.bssb'
         minSdkVersion rootProject.ext.minSdkVersion
