@@ -1,31 +1,19 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import {
   View,
   TextInput,
-  Button,
-  ScrollView,
   TouchableOpacity,
   Text,
   Image,
   StyleSheet,
-  Platform,
   Alert,
+  ScrollView,
 } from 'react-native'
 import DateTimePickerModal from 'react-native-modal-datetime-picker'
 import * as ImagePicker from 'expo-image-picker'
 import { Ionicons } from '@expo/vector-icons'
 import { format } from 'date-fns'
 import { Event } from '@/types/event'
-
-// DEFAULT_EVENT_IMAGE constant
-const DEFAULT_EVENT_IMAGE =
-  'https://www.sunderlandecho.com/webimg/b25lY21zOmI3MGJlOTU0LWYzZWYtNDdjOC04ZjQwLTE4NDlhOWM2MmQ1YTo3MmI1NjBkOS01NDM5LTQzOGEtOWFkNy1kYmZkZmViNjUyYmI=.jpg?width=1200&enable=upscale'
-
-// Simulated current user (in a real app, this would come from authentication)
-const currentUser = {
-  userId: 'user123',
-  userName: 'John Doe',
-}
 
 interface EventFormProps {
   onAddEvent: (
@@ -34,7 +22,7 @@ interface EventFormProps {
       'id' | 'likes' | 'comments' | 'attendees' | 'createdBy'
     >
   ) => void
-  onClose: () => void // Function to close the modal
+  onClose: () => void
 }
 
 const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
@@ -44,7 +32,6 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
     location: '',
     description: '',
     imageUrl: '',
-    locationCoordinates: undefined as Location | undefined,
   })
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [mediaLibraryPermission, setMediaLibraryPermission] = useState<
@@ -52,27 +39,6 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
   >(null)
 
   const DateTimeInput = () => {
-    if (Platform.OS === 'web') {
-      return (
-        <input
-          type='datetime-local'
-          value={format(newEvent.date, "yyyy-MM-dd'T'HH:mm")}
-          onChange={e => {
-            const date = new Date(e.target.value)
-            setNewEvent({ ...newEvent, date })
-          }}
-          style={{
-            padding: 10,
-            borderWidth: 1,
-            borderColor: '#ddd',
-            borderRadius: 5,
-            marginBottom: 15,
-            width: '100%',
-          }}
-        />
-      )
-    }
-
     return (
       <View>
         <TouchableOpacity
@@ -83,7 +49,6 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
             {format(newEvent.date, 'MMMM dd, yyyy HH:mm')}
           </Text>
         </TouchableOpacity>
-
         <DateTimePickerModal
           isVisible={showDatePicker}
           mode='datetime'
@@ -153,7 +118,6 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
       location: '',
       description: '',
       imageUrl: '',
-      locationCoordinates: undefined,
     })
     onClose()
   }

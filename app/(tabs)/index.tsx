@@ -1,27 +1,33 @@
-// d:\WebDev Projects\bssb\index.tsx
+// d:\WebDev Projects\bssb\app\(tabs)\index.tsx
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import {
   StyleSheet,
   View,
   FlatList,
   SafeAreaView,
   ImageBackground,
+  TouchableOpacity,
+  Text,
 } from 'react-native'
 import * as Notifications from 'expo-notifications'
+import Modal from 'react-native-modal'
+
 import MainScreen from '../../components/MainScreen'
-import EventForm from '../../components/EventForm'
-import EventList from '../../components/EventList'
 import EventCard from '../../components/EventCard'
-import EventDetailsModal from '../../components/EventDetailsModal'
+import EventForm from '../../components/EventForm' // Import EventForm
 import { Event, EventComment, EventAttendee } from '../../types/event'
 
-// Restore the default event image
+// Constants
 const DEFAULT_EVENT_IMAGE =
   'https://www.sunderlandecho.com/webimg/b25lY21zOmI3MGJlOTU0LWYzZWYtNDdjOC04ZjQwLTE4NDlhOWM2MmQ1YTo3MmI1NjBkOS01NDM5LTQzOGEtOWFkNy1kYmZkZmViNjUyYmI=.jpg?width=1200&enable=upscale'
-
-// New background image from assets
 const BACKGROUND_IMAGE = require('../../assets/images/index-background.jpg')
+
+// Simulated current user
+const currentUser = {
+  userId: 'user123',
+  userName: 'John Doe',
+}
 
 // Mock data for testing
 const initialEvents: Event[] = [
@@ -69,139 +75,74 @@ Notifications.setNotificationHandler({
   }),
 })
 
+// --- App Component ---
 export default function App() {
+  // State
   const [events, setEvents] = useState<Event[]>(initialEvents)
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
-  const [currentUser, setCurrentUser] = useState({
-    userId: 'user3',
-    userName: 'Alice Brown',
-  })
+  const [modalVisible, setModalVisible] = useState(false)
 
+  // --- addEvent function ---
   const addEvent = (
     eventData: Omit<
       Event,
       'id' | 'likes' | 'comments' | 'attendees' | 'createdBy'
     >
   ) => {
-    const newEvent: Event = {
+    const event: Event = {
       ...eventData,
       id: Date.now().toString(),
       likes: [],
       comments: [],
       attendees: [],
-      createdBy: {
-        userId: currentUser.userId,
-        userName: currentUser.userName,
-      },
+      createdBy: currentUser,
     }
-    setEvents([...events, newEvent])
+
+    // Add event to events list (newest first)
+    setEvents([event, ...events])
+
+    // Close modal
+    setModalVisible(false)
   }
 
-  const handleEventPress = (event: Event) => {
-    setSelectedEvent(event)
-  }
-
-  const handleCloseModal = () => {
-    setSelectedEvent(null)
-  }
-
-  const toggleLike = (eventId: string) => {
-    setEvents(
-      events.map(event => {
-        if (event.id === eventId) {
-          const userIdIndex = event.likes.indexOf(currentUser.userId)
-          if (userIdIndex === -1) {
-            return { ...event, likes: [...event.likes, currentUser.userId] }
-          } else {
-            return {
-              ...event,
-              likes: event.likes.filter(id => id !== currentUser.userId),
-            }
-          }
-        }
-        return event
-      })
-    )
-  }
-
-  const addComment = (eventId: string, commentText: string) => {
-    if (commentText.trim() === '') return
-    const newComment: EventComment = {
-      id: Date.now().toString(),
-      userId: currentUser.userId,
-      userName: currentUser.userName,
-      text: commentText,
-      timestamp: new Date(),
-    }
-    setEvents(
-      events.map(event => {
-        if (event.id === eventId) {
-          return { ...event, comments: [...event.comments, newComment] }
-        }
-        return event
-      })
-    )
-  }
-
-  const updateAttendanceStatus = (
-    eventId: string,
-    status: 'going' | 'maybe' | 'not going'
-  ) => {
-    setEvents(
-      events.map(event => {
-        if (event.id === eventId) {
-          const existingAttendeeIndex = event.attendees.findIndex(
-            a => a.userId === currentUser.userId
-          )
-          let updatedAttendees: EventAttendee[]
-          if (existingAttendeeIndex !== -1) {
-            updatedAttendees = [...event.attendees]
-            updatedAttendees[existingAttendeeIndex] = {
-              ...updatedAttendees[existingAttendeeIndex],
-              status,
-            }
-          } else {
-            updatedAttendees = [
-              ...event.attendees,
-              {
-                userId: currentUser.userId,
-                userName: currentUser.userName,
-                status,
-              },
-            ]
-          }
-          return { ...event, attendees: updatedAttendees }
-        }
-        return event
-      })
-    )
+  const handleModalClose = () => {
+    setModalVisible(false)
   }
 
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground
-        source={BACKGROUND_IMAGE} // Use the new background image
-        defaultSource={{ uri: DEFAULT_EVENT_IMAGE }} // Fallback to default image
+        source={BACKGROUND_IMAGE}
+        defaultSource={{ uri: DEFAULT_EVENT_IMAGE }}
         style={styles.backgroundImage}
         resizeMode='cover'
       >
         <View style={styles.overlay}>
-          <MainScreen onAddEvent={addEvent} />
+          {/* --- MainScreen Component --- */}
+          <MainScreen onModalPress={() => setModalVisible(true)} />
+          {/* --- End of MainScreen Component --- */}
+
           <FlatList
             data={events}
             renderItem={({ item }) => (
-              <EventCard event={item} onPress={handleEventPress} />
+              <EventCard event={item} onPress={() => console.log(item)} />
             )}
             keyExtractor={item => item.id}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No events yet</Text>
+              </View>
+            }
           />
-          <EventDetailsModal
-            event={selectedEvent}
-            onClose={handleCloseModal}
-            currentUser={currentUser}
-            toggleLike={toggleLike}
-            addComment={addComment}
-            updateAttendanceStatus={updateAttendanceStatus}
-          />
+          <Modal
+            isVisible={modalVisible}
+            onBackdropPress={handleModalClose}
+            style={styles.createEventModal}
+            backdropOpacity={0.5}
+            animationIn='slideInUp'
+            animationOut='slideOutDown'
+          >
+            <EventForm onAddEvent={addEvent} onClose={handleModalClose} />
+          </Modal>
         </View>
       </ImageBackground>
     </SafeAreaView>
@@ -219,5 +160,21 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    marginTop: 100,
+  },
+  emptyStateText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  createEventModal: {
+    justifyContent: 'flex-end',
+    margin: 0,
   },
 })

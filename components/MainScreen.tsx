@@ -1,74 +1,53 @@
-import React, { useState } from 'react'
-import NotificationHandler from './NotificationHandler'
-import EventForm from './EventForm'
-import EventList from './EventList'
+import React from 'react'
 import { StyleSheet, TouchableOpacity, Text, View } from 'react-native'
-import { Event } from '@/types/event'
-import Modal from 'react-native-modal'
+import NotificationHandler from './NotificationHandler'
 
 interface MainScreenProps {
-  onAddEvent: (
-    eventData: Omit<
-      Event,
-      'id' | 'likes' | 'comments' | 'attendees' | 'createdBy'
-    >
-  ) => void
+  onModalPress: () => void
 }
 
-const MainScreen: React.FC<MainScreenProps> = ({ onAddEvent }) => {
-  const [events, setEvents] = useState<Event[]>([])
-  const [modalVisible, setModalVisible] = useState(false)
-
-  const handleModalClose = () => {
-    setModalVisible(false)
-  }
-
+const MainScreen: React.FC<MainScreenProps> = ({ onModalPress }) => {
   return (
     <>
       <NotificationHandler />
-      <EventList events={events} />
-      <Modal
-        isVisible={modalVisible}
-        onBackdropPress={handleModalClose}
-        style={styles.createEventModal}
-        backdropOpacity={0.5}
-        animationIn='slideInUp'
-        animationOut='slideOutDown'
-      >
-        <EventForm onAddEvent={onAddEvent} onClose={handleModalClose} />
-      </Modal>
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => setModalVisible(true)}
-      >
-        <Text style={styles.addButtonText}>+</Text>
-      </TouchableOpacity>
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.addButton} onPress={onModalPress}>
+          <Text style={styles.addButtonText}>+</Text>
+        </TouchableOpacity>
+      </View>
     </>
   )
 }
 
 const styles = StyleSheet.create({
-  addButton: {
-    position: 'absolute',
+  container: {
+    position: 'absolute', // <--- Make container relative to the screen
+    bottom: 20, // <--- Position at the bottom
+    left: 0,
     right: 20,
-    bottom: 20,
+    alignItems: 'flex-end', // <--- Center the button horizontally
+    zIndex: 1, // Ensure the button is above other components
+  },
+  addButton: {
     width: 60,
     height: 60,
     borderRadius: 30,
     backgroundColor: '#e21d38',
     justifyContent: 'center',
     alignItems: 'center',
-    boxShadow: '0 4px 4px rgba(0, 0, 0, 0.25)',
-    elevation: 5,
     zIndex: 999,
+    shadowColor: '#000', // <--- Shadow
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5, // Elevation is for Android
   },
   addButtonText: {
     fontSize: 30,
     color: '#fff',
-  },
-  createEventModal: {
-    justifyContent: 'flex-end',
-    margin: 0,
   },
 })
 
