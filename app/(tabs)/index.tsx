@@ -201,6 +201,10 @@ export default function App() {
   const renderEventDetails = () => {
     if (!selectedEvent) return null
 
+    // Find the most up-to-date event data from the events array
+    const currentEvent = events.find(event => event.id === selectedEvent.id)
+    if (!currentEvent) return null // Event might have been deleted
+
     return (
       <Modal
         isVisible={!!selectedEvent}
@@ -223,22 +227,22 @@ export default function App() {
 
           {/* Event Image */}
           <Image
-            source={{ uri: selectedEvent.imageUrl || DEFAULT_EVENT_IMAGE }}
+            source={{ uri: currentEvent.imageUrl || DEFAULT_EVENT_IMAGE }}
             style={styles.eventDetailImage}
             resizeMode='cover'
           />
 
           {/* Event Basic Info */}
           <View style={styles.eventDetailsContent}>
-            <Text style={styles.eventDetailsTitle}>{selectedEvent.title}</Text>
+            <Text style={styles.eventDetailsTitle}>{currentEvent.title}</Text>
             <Text style={styles.eventDetailsDate}>
-              {format(selectedEvent.date, 'MMMM dd, yyyy HH:mm')}
+              {format(currentEvent.date, 'MMMM dd, yyyy HH:mm')}
             </Text>
             <Text style={styles.eventDetailsLocation}>
-              {selectedEvent.location}
+              {currentEvent.location}
             </Text>
             <Text style={styles.eventDetailsDescription}>
-              {selectedEvent.description}
+              {currentEvent.description}
             </Text>
 
             {/* Attendance Buttons */}
@@ -246,18 +250,16 @@ export default function App() {
               <TouchableOpacity
                 style={[
                   styles.attendanceButton,
-                  selectedEvent.attendees.some(
+                  currentEvent.attendees.some(
                     a => a.userId === currentUser.userId && a.status === 'going'
                   ) && styles.attendanceButtonActive,
                 ]}
-                onPress={() =>
-                  updateAttendanceStatus(selectedEvent.id, 'going')
-                }
+                onPress={() => updateAttendanceStatus(currentEvent.id, 'going')}
               >
                 <Text
                   style={[
                     styles.attendanceButtonText,
-                    selectedEvent.attendees.some(
+                    currentEvent.attendees.some(
                       a =>
                         a.userId === currentUser.userId && a.status === 'going'
                     ) && { color: '#fff' },
@@ -269,18 +271,16 @@ export default function App() {
               <TouchableOpacity
                 style={[
                   styles.attendanceButton,
-                  selectedEvent.attendees.some(
+                  currentEvent.attendees.some(
                     a => a.userId === currentUser.userId && a.status === 'maybe'
                   ) && styles.attendanceButtonActive,
                 ]}
-                onPress={() =>
-                  updateAttendanceStatus(selectedEvent.id, 'maybe')
-                }
+                onPress={() => updateAttendanceStatus(currentEvent.id, 'maybe')}
               >
                 <Text
                   style={[
                     styles.attendanceButtonText,
-                    selectedEvent.attendees.some(
+                    currentEvent.attendees.some(
                       a =>
                         a.userId === currentUser.userId && a.status === 'maybe'
                     ) && { color: '#fff' },
@@ -292,20 +292,20 @@ export default function App() {
               <TouchableOpacity
                 style={[
                   styles.attendanceButton,
-                  selectedEvent.attendees.some(
+                  currentEvent.attendees.some(
                     a =>
                       a.userId === currentUser.userId &&
                       a.status === 'not going'
                   ) && styles.attendanceButtonActive,
                 ]}
                 onPress={() =>
-                  updateAttendanceStatus(selectedEvent.id, 'not going')
+                  updateAttendanceStatus(currentEvent.id, 'not going')
                 }
               >
                 <Text
                   style={[
                     styles.attendanceButtonText,
-                    selectedEvent.attendees.some(
+                    currentEvent.attendees.some(
                       a =>
                         a.userId === currentUser.userId &&
                         a.status === 'not going'
@@ -319,23 +319,23 @@ export default function App() {
 
             {/* Likes */}
             <View style={styles.likesContainer}>
-              <TouchableOpacity onPress={() => toggleLike(selectedEvent.id)}>
+              <TouchableOpacity onPress={() => toggleLike(currentEvent.id)}>
                 <Ionicons
                   name={
-                    selectedEvent.likes.includes(currentUser.userId)
+                    currentEvent.likes.includes(currentUser.userId)
                       ? 'heart'
                       : 'heart-outline'
                   }
                   size={24}
                   color={
-                    selectedEvent.likes.includes(currentUser.userId)
+                    currentEvent.likes.includes(currentUser.userId)
                       ? 'red'
                       : 'black'
                   }
                 />
               </TouchableOpacity>
               <Text style={styles.likesText}>
-                {selectedEvent.likes.length} Likes
+                {currentEvent.likes.length} Likes
               </Text>
             </View>
 
@@ -343,7 +343,7 @@ export default function App() {
             <View style={styles.attendeesContainer}>
               <Text style={styles.attendeesTitle}>Attendees</Text>
               {['going', 'maybe', 'not going'].map(status => {
-                const statusAttendees = selectedEvent.attendees.filter(
+                const statusAttendees = currentEvent.attendees.filter(
                   a => a.status === status
                 )
                 return statusAttendees.length > 0 ? (
@@ -365,7 +365,7 @@ export default function App() {
             {/* Comments Section */}
             <View style={styles.commentsContainer}>
               <Text style={styles.commentsTitle}>Comments</Text>
-              {selectedEvent.comments.map(comment => (
+              {currentEvent.comments.map(comment => (
                 <View key={comment.id} style={styles.commentItem}>
                   <Text style={styles.commentUserName}>{comment.userName}</Text>
                   <Text style={styles.commentText}>{comment.text}</Text>
@@ -387,7 +387,7 @@ export default function App() {
               />
               <TouchableOpacity
                 style={styles.sendCommentButton}
-                onPress={() => addComment(selectedEvent.id)}
+                onPress={() => addComment(currentEvent.id)}
               >
                 <Ionicons name='send' size={20} color='#fff' />
               </TouchableOpacity>
@@ -561,22 +561,30 @@ const styles = StyleSheet.create({
   },
   attendeesContainer: {
     marginBottom: 20,
+    paddingHorizontal: 10, // Add some horizontal padding
   },
   attendeesTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#e21d38',
     marginBottom: 10,
+    paddingHorizontal: 10, // Add some horizontal padding
   },
   attendeeStatusTitle: {
     fontSize: 16,
     color: '#333',
     marginBottom: 5,
+    fontWeight: '600', // Make the status title a bit bolder
+    paddingHorizontal: 10, // Add some horizontal padding
   },
   attendeeItem: {
     fontSize: 16,
     color: '#666',
     marginBottom: 5,
+    paddingVertical: 5, // Add some vertical padding
+    paddingHorizontal: 20, // Add more horizontal padding for indentation
+    borderBottomWidth: 1, // Add a subtle border between attendees
+    borderBottomColor: '#eee', // Light gray border color
   },
   commentsContainer: {
     marginTop: 10,
