@@ -45,7 +45,11 @@ type Event = {
 
 const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
   return (
-    <TouchableOpacity style={styles.eventCard} onPress={() => onPress(event)}>
+    <TouchableOpacity
+      style={styles.eventCard}
+      onPress={() => onPress(event)}
+      activeOpacity={0.8}
+    >
       <Image
         source={{ uri: event.imageUrl || DEFAULT_EVENT_IMAGE }}
         style={styles.eventCardImage}
