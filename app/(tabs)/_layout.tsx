@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -9,6 +9,7 @@ import {
   Image, 
   StyleSheet 
 } from 'react-native';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Import the logo using the correct path
 const LogoImage = require('../../assets/images/logo.jpg');
@@ -29,7 +30,17 @@ const CustomHeader = () => {
   );
 };
 
-export default function TabLayout() {
+function TabsLayout() {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return null // or a loading screen
+  }
+
+  if (!user) {
+    return <Redirect href="/(auth)/login" />
+  }
+
   return (
     <SafeAreaProvider>
       <StatusBar 
@@ -114,6 +125,8 @@ export default function TabLayout() {
     </SafeAreaProvider>
   );
 }
+
+export default TabsLayout;
 
 const styles = StyleSheet.create({
   headerContainer: {

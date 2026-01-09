@@ -12,6 +12,7 @@ import {
   FlatList,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { router } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
 import { getCurrentUser } from '../../utils/userUtils'
 import { Event } from '../../types/event'
@@ -31,6 +32,13 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(false)
   const [userEvents, setUserEvents] = useState<Event[]>([])
   const [eventsLoading, setEventsLoading] = useState(true)
+
+  // Redirect to login if user becomes null (logged out)
+  useEffect(() => {
+    if (!user) {
+      router.replace('/(auth)/login')
+    }
+  }, [user])
 
   // Load user's created events
   useEffect(() => {
@@ -68,7 +76,7 @@ export default function ProfileScreen() {
     }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Alert.alert(
       'Logout',
       'Are you sure you want to logout?',
@@ -77,7 +85,16 @@ export default function ProfileScreen() {
         { 
           text: 'Logout', 
           style: 'destructive',
-          onPress: logout
+          onPress: async () => {
+            try {
+              await logout()
+              // Explicitly redirect to login screen
+              router.replace('/(auth)/login')
+            } catch (error) {
+              console.error('Logout error:', error)
+              Alert.alert('Error', 'Failed to logout. Please try again.')
+            }
+          }
         }
       ]
     )
