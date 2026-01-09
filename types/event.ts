@@ -27,4 +27,5 @@ export type Event = {
   likes: string[]
   comments: EventComment[]
   attendees: EventAttendee[]
+  createdAt?: Date
 }

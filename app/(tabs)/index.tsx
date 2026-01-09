@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   StyleSheet,
   View,
@@ -10,193 +10,166 @@ import {
   Image,
   ScrollView,
   TextInput,
+  Alert,
 } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import Modal from 'react-native-modal'
 import { format } from 'date-fns'
 import { Ionicons } from '@expo/vector-icons'
+import { useAuth } from '../../contexts/AuthContext'
+import { getCurrentUser } from '../../utils/userUtils'
 
 import MainScreen from '../../components/MainScreen'
 import EventCard from '../../components/EventCard'
 import EventForm from '../../components/EventForm'
-import { Event, EventComment, EventAttendee } from '../../types/event'
+import { Event, EventComment } from '../../types/event'
+import {
+  createEvent,
+  subscribeToEvents,
+  toggleEventLike,
+  addEventComment,
+  updateEventAttendance,
+} from '../../utils/eventService'
 
 // Constants
 const DEFAULT_EVENT_IMAGE =
   'https://www.sunderlandecho.com/webimg/b25lY21zOmI3MGJlOTU0LWYzZWYtNDdjOC04ZjQwLTE4NDlhOWM2MmQ1YTo3MmI1NjBkOS01NDM5LTQzOGEtOWFkNy1kYmZkZmViNjUyYmI=.jpg?width=1200&enable=upscale'
 const BACKGROUND_IMAGE = require('../../assets/images/index-background.jpg')
 
-// Simulated current user
-const currentUser = {
-  userId: 'user123',
-  userName: 'John Doe',
-}
-
-// Mock data for testing
-const initialEvents: Event[] = [
-  // ... (your initial events data)
-  {
-    id: '1',
-    title: 'Beach Cleanup',
-    date: new Date(2024, 6, 15, 10, 0),
-    location: 'Santa Monica Beach',
-    description: 'Help us clean up the beach!',
-    createdBy: { userId: 'user1', userName: 'John Doe' },
-    likes: ['user1', 'user2'],
-    comments: [
-      {
-        id: 'comment1',
-        userId: 'user2',
-        userName: 'Jane Smith',
-        text: 'Sounds great!',
-        timestamp: new Date(),
-      },
-    ],
-    attendees: [
-      { userId: 'user1', userName: 'John Doe', status: 'going' },
-      { userId: 'user2', userName: 'Jane Smith', status: 'maybe' },
-    ],
-  },
-  {
-    id: '2',
-    title: 'Community Picnic',
-    date: new Date(2024, 7, 2, 12, 0),
-    location: 'Central Park',
-    description: 'Join us for a fun picnic!',
-    createdBy: { userId: 'user2', userName: 'Jane Smith' },
-    likes: ['user2'],
-    comments: [],
-    attendees: [{ userId: 'user2', userName: 'Jane Smith', status: 'going' }],
-  },
-]
-
 // Configure notifications
-// Notifications.setNotificationHandler({
-//   handleNotification: async () => ({
-//     shouldShowAlert: true,
-//     shouldPlaySound: false,
-//     shouldSetBadge: false,
-//   }),
-// })
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+})
 
 // --- App Component ---
 export default function App() {
+  const { user } = useAuth()
+  const currentUser = getCurrentUser(user)
+
   // State
-  const [events, setEvents] = useState<Event[]>(initialEvents)
+  const [events, setEvents] = useState<Event[]>([])
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [commentText, setCommentText] = useState('')
+  const [loading, setLoading] = useState(true)
 
-  // ... (rest of the component will be added in the next chunks)
-  // ... (previous code)
+  // Subscribe to events from Firebase
+  useEffect(() => {
+    if (user) {
+      const unsubscribe = subscribeToEvents((eventsData) => {
+        setEvents(eventsData)
+        setLoading(false)
+      })
 
-  // ... (previous state variables)
+      return () => unsubscribe()
+    } else {
+      setLoading(false)
+    }
+  }, [user])
 
   // --- addEvent function ---
-  const addEvent = (
+  const addEvent = async (
     eventData: Omit<
       Event,
       'id' | 'likes' | 'comments' | 'attendees' | 'createdBy'
     >
   ) => {
-    const event: Event = {
-      ...eventData,
-      id: Date.now().toString(),
-      likes: [],
-      comments: [],
-      attendees: [],
-      createdBy: currentUser,
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to create events.')
+      return
     }
 
-    // Add event to events list (newest first)
-    setEvents([event, ...events])
+    try {
+      const eventWithCreator = {
+        ...eventData,
+        createdBy: {
+          userId: user.uid,
+          userName: currentUser.userName,
+        },
+      }
 
-    // Close modal
-    setModalVisible(false)
+      // Create event in Firebase
+      await createEvent(eventWithCreator)
+
+      // Close modal
+      setModalVisible(false)
+
+      // Send push notifications (optional - implement if needed)
+      // try {
+      //   const tokens = await getAllPushTokens()
+      //   if (tokens.length > 0) {
+      //     await sendPushNotifications(
+      //       tokens,
+      //       'New Event Created',
+      //       `${eventData.title} on ${format(eventData.date, 'MMM dd, yyyy HH:mm')}`
+      //     )
+      //   }
+      // } catch (e) {
+      //   console.error('Error sending push notifications:', e)
+      // }
+    } catch (error) {
+      console.error('Error creating event:', error)
+      Alert.alert('Error', 'Failed to create event. Please try again.')
+    }
   }
 
   const handleModalClose = () => {
     setModalVisible(false)
   }
 
-  // ... (rest of the component will be added in the next chunks)
-  // ... (previous code)
+  const toggleLike = async (eventId: string) => {
+    if (!user) return
 
-  const toggleLike = (eventId: string) => {
-    setEvents(
-      events.map(event => {
-        if (event.id === eventId) {
-          const isLiked = event.likes.includes(currentUser.userId)
-          return {
-            ...event,
-            likes: isLiked
-              ? event.likes.filter(id => id !== currentUser.userId)
-              : [...event.likes, currentUser.userId],
-          }
-        }
-        return event
-      })
-    )
-  }
+    try {
+      const event = events.find(e => e.id === eventId)
+      if (!event) return
 
-  const addComment = (eventId: string) => {
-    if (!commentText.trim()) return
-
-    const newComment: EventComment = {
-      id: Date.now().toString(),
-      userId: currentUser.userId,
-      userName: currentUser.userName,
-      text: commentText,
-      timestamp: new Date(),
+      const isLiked = event.likes.includes(user.uid)
+      await toggleEventLike(eventId, user.uid, isLiked)
+    } catch (error) {
+      console.error('Error toggling like:', error)
+      Alert.alert('Error', 'Failed to update like. Please try again.')
     }
-
-    setEvents(
-      events.map(event => {
-        if (event.id === eventId) {
-          return {
-            ...event,
-            comments: [...event.comments, newComment],
-          }
-        }
-        return event
-      })
-    )
-
-    setCommentText('')
   }
 
-  const updateAttendanceStatus = (
+  const addComment = async (eventId: string) => {
+    if (!commentText.trim() || !user) return
+
+    try {
+      await addEventComment(eventId, {
+        userId: user.uid,
+        userName: currentUser.userName,
+        text: commentText,
+      })
+
+      setCommentText('')
+    } catch (error) {
+      console.error('Error adding comment:', error)
+      Alert.alert('Error', 'Failed to add comment. Please try again.')
+    }
+  }
+
+  const updateAttendanceStatus = async (
     eventId: string,
     status: 'going' | 'maybe' | 'not going'
   ) => {
-    setEvents(
-      events.map(event => {
-        if (event.id === eventId) {
-          // Remove existing attendance if user already has one
-          const filteredAttendees = event.attendees.filter(
-            attendee => attendee.userId !== currentUser.userId
-          )
+    if (!user) return
 
-          // Add new attendance status
-          return {
-            ...event,
-            attendees: [
-              ...filteredAttendees,
-              {
-                userId: currentUser.userId,
-                userName: currentUser.userName,
-                status,
-              },
-            ],
-          }
-        }
-        return event
+    try {
+      await updateEventAttendance(eventId, {
+        userId: user.uid,
+        userName: currentUser.userName,
+        status,
       })
-    )
+    } catch (error) {
+      console.error('Error updating attendance:', error)
+      Alert.alert('Error', 'Failed to update attendance. Please try again.')
+    }
   }
-
-  // ... (rest of the component will be added in the next chunks)
-  // ... (previous code)
 
   const renderEventDetails = () => {
     if (!selectedEvent) return null
@@ -251,7 +224,7 @@ export default function App() {
                 style={[
                   styles.attendanceButton,
                   currentEvent.attendees.some(
-                    a => a.userId === currentUser.userId && a.status === 'going'
+                    a => a.userId === user?.uid && a.status === 'going'
                   ) && styles.attendanceButtonActive,
                 ]}
                 onPress={() => updateAttendanceStatus(currentEvent.id, 'going')}
@@ -260,8 +233,7 @@ export default function App() {
                   style={[
                     styles.attendanceButtonText,
                     currentEvent.attendees.some(
-                      a =>
-                        a.userId === currentUser.userId && a.status === 'going'
+                      a => a.userId === user?.uid && a.status === 'going'
                     ) && { color: '#fff' },
                   ]}
                 >
@@ -272,7 +244,7 @@ export default function App() {
                 style={[
                   styles.attendanceButton,
                   currentEvent.attendees.some(
-                    a => a.userId === currentUser.userId && a.status === 'maybe'
+                    a => a.userId === user?.uid && a.status === 'maybe'
                   ) && styles.attendanceButtonActive,
                 ]}
                 onPress={() => updateAttendanceStatus(currentEvent.id, 'maybe')}
@@ -281,8 +253,7 @@ export default function App() {
                   style={[
                     styles.attendanceButtonText,
                     currentEvent.attendees.some(
-                      a =>
-                        a.userId === currentUser.userId && a.status === 'maybe'
+                      a => a.userId === user?.uid && a.status === 'maybe'
                     ) && { color: '#fff' },
                   ]}
                 >
@@ -293,9 +264,7 @@ export default function App() {
                 style={[
                   styles.attendanceButton,
                   currentEvent.attendees.some(
-                    a =>
-                      a.userId === currentUser.userId &&
-                      a.status === 'not going'
+                    a => a.userId === user?.uid && a.status === 'not going'
                   ) && styles.attendanceButtonActive,
                 ]}
                 onPress={() =>
@@ -306,9 +275,7 @@ export default function App() {
                   style={[
                     styles.attendanceButtonText,
                     currentEvent.attendees.some(
-                      a =>
-                        a.userId === currentUser.userId &&
-                        a.status === 'not going'
+                      a => a.userId === user?.uid && a.status === 'not going'
                     ) && { color: '#fff' },
                   ]}
                 >
@@ -322,13 +289,13 @@ export default function App() {
               <TouchableOpacity onPress={() => toggleLike(currentEvent.id)}>
                 <Ionicons
                   name={
-                    currentEvent.likes.includes(currentUser.userId)
+                    currentEvent.likes.includes(user?.uid || '')
                       ? 'heart'
                       : 'heart-outline'
                   }
                   size={24}
                   color={
-                    currentEvent.likes.includes(currentUser.userId)
+                    currentEvent.likes.includes(user?.uid || '')
                       ? 'red'
                       : 'black'
                   }
@@ -398,11 +365,6 @@ export default function App() {
     )
   }
 
-  // ... (rest of the component will be added in the next chunks)
-  // ... (previous code)
-
-  // ... (previous code from Chunk 4: renderEventDetails function)
-
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground
@@ -422,9 +384,15 @@ export default function App() {
               <EventCard event={item} onPress={() => setSelectedEvent(item)} />
             )}
             keyExtractor={item => item.id}
+            refreshing={loading}
+            onRefresh={() => {
+              // Events are automatically updated via subscription
+            }}
             ListEmptyComponent={
               <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>No events yet</Text>
+                <Text style={styles.emptyStateText}>
+                  {loading ? 'Loading events...' : user ? 'No events yet' : 'Please log in to see events'}
+                </Text>
               </View>
             }
           />
@@ -444,8 +412,6 @@ export default function App() {
     </SafeAreaView>
   )
 }
-
-// ... (previous code)
 
 const styles = StyleSheet.create({
   container: {
@@ -561,30 +527,30 @@ const styles = StyleSheet.create({
   },
   attendeesContainer: {
     marginBottom: 20,
-    paddingHorizontal: 10, // Add some horizontal padding
+    paddingHorizontal: 10,
   },
   attendeesTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#e21d38',
     marginBottom: 10,
-    paddingHorizontal: 10, // Add some horizontal padding
+    paddingHorizontal: 10,
   },
   attendeeStatusTitle: {
     fontSize: 16,
     color: '#333',
     marginBottom: 5,
-    fontWeight: '600', // Make the status title a bit bolder
-    paddingHorizontal: 10, // Add some horizontal padding
+    fontWeight: '600',
+    paddingHorizontal: 10,
   },
   attendeeItem: {
     fontSize: 16,
     color: '#666',
     marginBottom: 5,
-    paddingVertical: 5, // Add some vertical padding
-    paddingHorizontal: 20, // Add more horizontal padding for indentation
-    borderBottomWidth: 1, // Add a subtle border between attendees
-    borderBottomColor: '#eee', // Light gray border color
+    paddingVertical: 5,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   commentsContainer: {
     marginTop: 10,
