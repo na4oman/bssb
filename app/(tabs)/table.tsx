@@ -41,7 +41,7 @@ export default function TableScreen() {
     const fetchStandings = async () => {
       try {
         // EFL Championship league code
-        const response = await axios.get('https://api.football-data.org/v4/competitions/ELC/standings', {
+        const response = await axios.get('https://api.football-data.org/v4/competitions/PL/standings', {
           headers: {
             'X-Auth-Token': footballDataApiKey
           }

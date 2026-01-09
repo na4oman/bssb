@@ -97,7 +97,7 @@ export default function FixturesScreen(): React.ReactElement {
       setError(null);
 
       // EFL Championship league code
-      const upcomingResponse = await axios.get('https://api.football-data.org/v4/competitions/ELC/matches', {
+      const upcomingResponse = await axios.get('https://api.football-data.org/v4/competitions/PL/matches', {
         headers: {
           'X-Auth-Token': footballDataApiKey
         },
@@ -107,7 +107,7 @@ export default function FixturesScreen(): React.ReactElement {
         }
       });
 
-      const pastResponse = await axios.get('https://api.football-data.org/v4/competitions/ELC/matches', {
+      const pastResponse = await axios.get('https://api.football-data.org/v4/competitions/PL/matches', {
         headers: {
           'X-Auth-Token': footballDataApiKey
         },
