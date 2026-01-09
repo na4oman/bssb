@@ -101,6 +101,7 @@ export default function SignupScreen() {
                   autoComplete="email"
                   textContentType="emailAddress"
                   placeholderTextColor="#999"
+                  importantForAutofill="yes"
                 />
               </View>
 
@@ -116,6 +117,7 @@ export default function SignupScreen() {
                   autoComplete="new-password"
                   textContentType="newPassword"
                   placeholderTextColor="#999"
+                  importantForAutofill="yes"
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
@@ -141,6 +143,7 @@ export default function SignupScreen() {
                   autoComplete="new-password"
                   textContentType="newPassword"
                   placeholderTextColor="#999"
+                  importantForAutofill="yes"
                 />
                 <TouchableOpacity
                   onPress={() => setShowConfirmPassword(!showConfirmPassword)}

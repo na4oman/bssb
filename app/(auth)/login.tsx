@@ -52,6 +52,8 @@ export default function LoginScreen() {
 
     try {
       setLoading(true)
+      
+      // Perform login
       await login(email.trim(), password)
       
       // Save credentials if remember me is checked
@@ -61,8 +63,12 @@ export default function LoginScreen() {
         await clearStoredCredentials()
       }
       
-      // Redirect to main app after successful login
-      router.replace('/(tabs)')
+      // Small delay to allow Samsung Pass to detect successful login
+      setTimeout(() => {
+        // Redirect to main app after successful login
+        router.replace('/(tabs)')
+      }, 100)
+      
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'Please check your credentials')
     } finally {
@@ -88,73 +94,86 @@ export default function LoginScreen() {
           <View style={styles.form}>
             <Text style={styles.welcomeText}>Welcome Back!</Text>
             
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-                textContentType="emailAddress"
-                placeholderTextColor="#999"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoComplete="current-password"
-                textContentType="password"
-                placeholderTextColor="#999"
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeIcon}
-              >
-                <Ionicons 
-                  name={showPassword ? "eye-outline" : "eye-off-outline"} 
-                  size={20} 
-                  color="#666" 
+            {/* Form wrapper for better autofill detection */}
+            <View style={styles.formWrapper}>
+              <View style={styles.inputContainer}>
+                <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  returnKeyType="next"
+                  placeholderTextColor="#999"
+                  importantForAutofill="yes"
+                  nativeID="email-input"
+                  onSubmitEditing={() => {
+                    // Focus password field when email is submitted
+                  }}
                 />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoComplete="password"
+                  textContentType="password"
+                  returnKeyType="done"
+                  placeholderTextColor="#999"
+                  importantForAutofill="yes"
+                  nativeID="password-input"
+                  onSubmitEditing={handleLogin}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeIcon}
+                >
+                  <Ionicons 
+                    name={showPassword ? "eye-outline" : "eye-off-outline"} 
+                    size={20} 
+                    color="#666" 
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {error && (
+                <Text style={styles.errorText}>{error}</Text>
+              )}
+
+              {/* Remember Me Checkbox */}
+              <TouchableOpacity
+                style={styles.rememberMeContainer}
+                onPress={() => setRememberMe(!rememberMe)}
+              >
+                <Ionicons
+                  name={rememberMe ? "checkbox" : "checkbox-outline"}
+                  size={20}
+                  color="#e21d38"
+                />
+                <Text style={styles.rememberMeText}>Remember my email</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+                onPress={handleLogin}
+                disabled={loading}
+              >
+                <Text style={styles.loginButtonText}>
+                  {loading ? 'Signing In...' : 'Sign In'}
+                </Text>
               </TouchableOpacity>
             </View>
-
-            {error && (
-              <Text style={styles.errorText}>{error}</Text>
-            )}
-
-            {/* Remember Me Checkbox */}
-            <TouchableOpacity
-              style={styles.rememberMeContainer}
-              onPress={() => setRememberMe(!rememberMe)}
-            >
-              <Ionicons
-                name={rememberMe ? "checkbox" : "checkbox-outline"}
-                size={20}
-                color="#e21d38"
-              />
-              <Text style={styles.rememberMeText}>Remember my email</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.loginButton, loading && styles.loginButtonDisabled]}
-              onPress={handleLogin}
-              disabled={loading}
-            >
-              <Text style={styles.loginButtonText}>
-                {loading ? 'Signing In...' : 'Sign In'}
-              </Text>
-            </TouchableOpacity>
 
             <View style={styles.signupContainer}>
               <Text style={styles.signupText}>Don't have an account? </Text>
@@ -206,6 +225,9 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   form: {
+    width: '100%',
+  },
+  formWrapper: {
     width: '100%',
   },
   welcomeText: {

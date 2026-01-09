@@ -24,7 +24,7 @@ const CustomHeader = () => {
         resizeMode="contain" 
       />
       <Text style={styles.headerTitle}>
-        Bulgarian Sunderland Supporters Branch
+        Bulgarian Sunderland{'\n'}Supporters Branch
       </Text>
     </View>
   );
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: "flex-start",
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 10,
