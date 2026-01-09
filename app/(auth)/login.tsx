@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
 import { Link, router } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
 import { Ionicons } from '@expo/vector-icons'
+import { saveCredentials, getStoredCredentials, clearStoredCredentials } from '../../utils/credentialStorage'
 
 const LogoImage = require('../../assets/images/logo.jpg')
 
@@ -22,8 +23,26 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
   
   const { login, error } = useAuth()
+
+  // Load stored credentials on component mount
+  useEffect(() => {
+    loadStoredCredentials()
+  }, [])
+
+  const loadStoredCredentials = async () => {
+    try {
+      const stored = await getStoredCredentials()
+      if (stored && stored.rememberMe) {
+        setEmail(stored.email)
+        setRememberMe(stored.rememberMe)
+      }
+    } catch (error) {
+      console.error('Error loading stored credentials:', error)
+    }
+  }
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -34,6 +53,14 @@ export default function LoginScreen() {
     try {
       setLoading(true)
       await login(email.trim(), password)
+      
+      // Save credentials if remember me is checked
+      if (rememberMe) {
+        await saveCredentials(email.trim(), true)
+      } else {
+        await clearStoredCredentials()
+      }
+      
       // Redirect to main app after successful login
       router.replace('/(tabs)')
     } catch (error: any) {
@@ -71,6 +98,8 @@ export default function LoginScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                autoComplete="email"
+                textContentType="emailAddress"
                 placeholderTextColor="#999"
               />
             </View>
@@ -84,6 +113,8 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
+                autoComplete="current-password"
+                textContentType="password"
                 placeholderTextColor="#999"
               />
               <TouchableOpacity
@@ -101,6 +132,19 @@ export default function LoginScreen() {
             {error && (
               <Text style={styles.errorText}>{error}</Text>
             )}
+
+            {/* Remember Me Checkbox */}
+            <TouchableOpacity
+              style={styles.rememberMeContainer}
+              onPress={() => setRememberMe(!rememberMe)}
+            >
+              <Ionicons
+                name={rememberMe ? "checkbox" : "checkbox-outline"}
+                size={20}
+                color="#e21d38"
+              />
+              <Text style={styles.rememberMeText}>Remember my email</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.loginButton, loading && styles.loginButtonDisabled]}
@@ -205,6 +249,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 15,
     fontSize: 14,
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 5,
+  },
+  rememberMeText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#666',
   },
   loginButton: {
     backgroundColor: '#e21d38',

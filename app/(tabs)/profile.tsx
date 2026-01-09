@@ -19,6 +19,7 @@ import { Event } from '../../types/event'
 import { subscribeToEvents } from '../../utils/eventService'
 import { format } from 'date-fns'
 import { updateProfile } from 'firebase/auth'
+import { clearStoredCredentials } from '../../utils/credentialStorage'
 
 const DEFAULT_AVATAR = 'https://via.placeholder.com/100x100.png?text=User'
 
@@ -91,6 +92,8 @@ export default function ProfileScreen() {
             try {
               console.log('Starting logout process...')
               await logout()
+              // Clear stored credentials on logout
+              await clearStoredCredentials()
               console.log('Logout successful, redirecting to login...')
               // Explicitly redirect to login screen
               router.replace('/(auth)/login')

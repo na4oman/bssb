@@ -98,6 +98,8 @@ export default function SignupScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  autoComplete="email"
+                  textContentType="emailAddress"
                   placeholderTextColor="#999"
                 />
               </View>
@@ -111,6 +113,8 @@ export default function SignupScreen() {
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
+                  autoComplete="new-password"
+                  textContentType="newPassword"
                   placeholderTextColor="#999"
                 />
                 <TouchableOpacity
@@ -134,6 +138,8 @@ export default function SignupScreen() {
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showConfirmPassword}
                   autoCapitalize="none"
+                  autoComplete="new-password"
+                  textContentType="newPassword"
                   placeholderTextColor="#999"
                 />
                 <TouchableOpacity
