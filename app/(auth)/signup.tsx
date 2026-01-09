@@ -12,7 +12,7 @@ import {
   SafeAreaView,
   ScrollView,
 } from 'react-native'
-import { Link } from 'expo-router'
+import { Link, router } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
 import { Ionicons } from '@expo/vector-icons'
 
@@ -60,6 +60,8 @@ export default function SignupScreen() {
       setLoading(true)
       await signup(email.trim(), password)
       Alert.alert('Success', 'Account created successfully!')
+      // Redirect to main app after successful signup
+      router.replace('/(tabs)')
     } catch (error: any) {
       Alert.alert('Signup Failed', error.message || 'Please try again')
     } finally {

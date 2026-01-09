@@ -11,7 +11,7 @@ import {
   Image,
   SafeAreaView,
 } from 'react-native'
-import { Link } from 'expo-router'
+import { Link, router } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
 import { Ionicons } from '@expo/vector-icons'
 
@@ -34,6 +34,8 @@ export default function LoginScreen() {
     try {
       setLoading(true)
       await login(email.trim(), password)
+      // Redirect to main app after successful login
+      router.replace('/(tabs)')
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'Please check your credentials')
     } finally {

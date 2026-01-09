@@ -5,13 +5,13 @@ import * as Notifications from 'expo-notifications';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDOCAbC123XYZ",
+  apiKey: "AIzaSyCzvTjOga8WxaTaQknnlh8cxpT5Qp7Nb6g",
   authDomain: "safc-8863b.firebaseapp.com",
   projectId: "safc-8863b",
-  storageBucket: "safc-8863b.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abc123",
-  measurementId: "G-ABCDEFG"
+  storageBucket: "safc-8863b.firebasestorage.app",
+  messagingSenderId: "661308293819",
+  appId: "1:661308293819:web:21092699f39a75f11cdf9e",
+  measurementId: "G-B6RPB5DFQR"
 };
 
 // Initialize Firebase
