@@ -45,6 +45,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, user => {
+      console.log('AuthContext: Auth state changed:', user ? `User: ${user.email}` : 'No user')
       setUser(user)
       setLoading(false)
     })
@@ -74,9 +75,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = async () => {
     try {
+      console.log('AuthContext: Starting logout...')
       setError(null)
       await firebaseSignOut(auth)
+      console.log('AuthContext: Firebase signOut completed')
     } catch (error: any) {
+      console.error('AuthContext: Logout error:', error)
       setError(error.message || 'Logout failed')
       throw error
     }

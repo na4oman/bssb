@@ -35,7 +35,9 @@ export default function ProfileScreen() {
 
   // Redirect to login if user becomes null (logged out)
   useEffect(() => {
+    console.log('Profile screen - user state changed:', user ? 'logged in' : 'logged out')
     if (!user) {
+      console.log('User is null, redirecting to login...')
       router.replace('/(auth)/login')
     }
   }, [user])
@@ -87,7 +89,9 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('Starting logout process...')
               await logout()
+              console.log('Logout successful, redirecting to login...')
               // Explicitly redirect to login screen
               router.replace('/(auth)/login')
             } catch (error) {
