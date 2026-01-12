@@ -98,10 +98,11 @@ export default function SignupScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  autoComplete="email"
-                  textContentType="emailAddress"
+                  autoComplete="username"
+                  textContentType="username"
                   placeholderTextColor="#999"
                   importantForAutofill="yes"
+                  nativeID="signup-username"
                 />
               </View>
 
@@ -118,6 +119,8 @@ export default function SignupScreen() {
                   textContentType="newPassword"
                   placeholderTextColor="#999"
                   importantForAutofill="yes"
+                  nativeID="signup-password"
+                  passwordRules="minlength: 6;"
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
