@@ -19,6 +19,7 @@ import { Event } from '../../types/event'
 import { subscribeToEvents } from '../../utils/eventService'
 import { format } from 'date-fns'
 import { updateProfile } from 'firebase/auth'
+import NotificationSettings from '../../components/NotificationSettings'
 
 const DEFAULT_AVATAR = 'https://via.placeholder.com/100x100.png?text=User'
 
@@ -211,6 +212,9 @@ export default function ProfileScreen() {
             <Text style={styles.statLabel}>Total Attendees</Text>
           </View>
         </View>
+
+        {/* Notification Settings */}
+        <NotificationSettings />
 
         {/* My Events Section */}
         <View style={styles.eventsSection}>

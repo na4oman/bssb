@@ -1,4 +1,4 @@
-import React, {
+import {
   createContext,
   useContext,
   useState,
@@ -13,6 +13,7 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth'
 import { auth } from '../config/firebase'
+import { setupNotifications, setupNotificationListeners } from '../utils/simpleNotificationService'
 
 type AuthContextType = {
   user: User | null
@@ -42,15 +43,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, user => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('AuthContext: Auth state changed:', user ? `User: ${user.email}` : 'No user')
       setUser(user)
+      
+      if (user) {
+        // Setup notifications when user logs in
+        try {
+          const hasPermission = await setupNotifications()
+          setNotificationsEnabled(hasPermission)
+          console.log('Notifications setup:', hasPermission ? 'Success' : 'Failed')
+        } catch (error) {
+          console.error('Error setting up notifications:', error)
+        }
+      } else {
+        // Clear notification state when user logs out
+        setNotificationsEnabled(false)
+      }
+      
       setLoading(false)
     })
 
-    return unsubscribe
+    // Setup notification listeners
+    const removeListeners = setupNotificationListeners()
+
+    return () => {
+      unsubscribe()
+      removeListeners()
+    }
   }, [])
 
   const signup = async (email: string, password: string) => {
@@ -77,6 +100,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       console.log('AuthContext: Starting logout...')
       setError(null)
+      
       await firebaseSignOut(auth)
       console.log('AuthContext: Firebase signOut completed')
     } catch (error: any) {

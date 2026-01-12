@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { Event, EventComment, EventAttendee } from '../types/event'
+import { notifyAllUsers } from '../utils/simpleNotificationService'
 
 const EVENTS_COLLECTION = 'events'
 
@@ -64,6 +65,23 @@ export const createEvent = async (
       attendees: [],
       createdAt: serverTimestamp(),
     })
+    
+    // Send notification about the new event
+    try {
+      await notifyAllUsers(
+        'New Event Created! 🎉',
+        `${eventData.title} - ${eventData.location}`,
+        {
+          eventId: docRef.id,
+          type: 'new_event',
+        }
+      )
+      console.log('Event notification sent')
+    } catch (notificationError) {
+      console.error('Error sending event notification:', notificationError)
+      // Don't throw here - event creation should succeed even if notification fails
+    }
+    
     return docRef.id
   } catch (error) {
     console.error('Error creating event:', error)
@@ -114,16 +132,22 @@ export const addEventComment = async (
   comment: Omit<EventComment, 'id' | 'timestamp'>
 ): Promise<void> => {
   try {
+    console.log('Adding comment to event:', eventId, comment)
+    
     const eventRef = doc(db, EVENTS_COLLECTION, eventId)
     const newComment = {
       ...comment,
       id: Date.now().toString(),
-      timestamp: serverTimestamp(),
+      timestamp: new Date(), // Use regular Date instead of serverTimestamp()
     }
+    
+    console.log('New comment object:', newComment)
     
     await updateDoc(eventRef, {
       comments: arrayUnion(newComment),
     })
+    
+    console.log('Comment added successfully')
   } catch (error) {
     console.error('Error adding comment:', error)
     throw error

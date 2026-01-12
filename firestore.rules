@@ -1,8 +1,39 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Users can read/write their own user document
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Users can read/write their own notification tokens
+      match /tokens/{tokenId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Events collection - with comment support
+    match /events/{eventId} {
+      // Anyone authenticated can read events
+      allow read: if request.auth != null;
+      
+      // Only authenticated users can create events, and only if they set themselves as creator
+      allow create: if request.auth != null && 
+                   request.auth.uid == request.resource.data.createdBy.userId;
+      
+      // Allow authenticated users to update events for comments, likes, and attendance
+      allow update: if request.auth != null && (
+        // Event creator can update anything
+        request.auth.uid == resource.data.createdBy.userId ||
+        // Any authenticated user can add comments, likes, or update attendance
+        (
+          // Only allow updates to comments, likes, and attendees arrays
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments', 'likes', 'attendees'])
+        )
+      );
+      
+      // Only the creator can delete their events
+      allow delete: if request.auth != null && 
+                   request.auth.uid == resource.data.createdBy.userId;
     }
   }
 } 

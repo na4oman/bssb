@@ -354,7 +354,7 @@ export default function App() {
               />
               <TouchableOpacity
                 style={styles.sendCommentButton}
-                onPress={() => addComment(currentEvent.id)}
+                onPress={() => addComment(selectedEvent.id)}
               >
                 <Ionicons name='send' size={20} color='#fff' />
               </TouchableOpacity>
