@@ -11,6 +11,11 @@ service cloud.firestore {
       }
     }
     
+    // Users can read/write their own seen events
+    match /userSeenEvents/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
     // Events collection - with comment support
     match /events/{eventId} {
       // Anyone authenticated can read events
@@ -36,4 +41,4 @@ service cloud.firestore {
                    request.auth.uid == resource.data.createdBy.userId;
     }
   }
-} 
+}

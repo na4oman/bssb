@@ -139,6 +139,7 @@ export const addEventComment = async (
       ...comment,
       id: Date.now().toString(),
       timestamp: new Date(), // Use regular Date instead of serverTimestamp()
+      imageUrl: comment.imageUrl || undefined, // Include imageUrl if provided
     }
     
     console.log('New comment object:', newComment)

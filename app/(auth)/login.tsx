@@ -63,11 +63,11 @@ export default function LoginScreen() {
         await clearStoredCredentials()
       }
       
-      // Small delay to allow Samsung Pass to detect successful login
-      setTimeout(() => {
-        // Redirect to main app after successful login
-        router.replace('/(tabs)')
-      }, 100)
+      // Success - allow password managers to detect successful login
+      console.log('Login successful - password managers should detect this')
+      
+      // Redirect to main app after successful login
+      router.replace('/(tabs)')
       
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'Please check your credentials')
@@ -106,12 +106,12 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  autoComplete="email"
-                  textContentType="emailAddress"
+                  autoComplete="username"
+                  textContentType="username"
                   returnKeyType="next"
                   placeholderTextColor="#999"
                   importantForAutofill="yes"
-                  nativeID="email-input"
+                  nativeID="username"
                   onSubmitEditing={() => {
                     // Focus password field when email is submitted
                   }}
@@ -127,12 +127,13 @@ export default function LoginScreen() {
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
-                  autoComplete="password"
+                  autoComplete="current-password"
                   textContentType="password"
                   returnKeyType="done"
                   placeholderTextColor="#999"
                   importantForAutofill="yes"
-                  nativeID="password-input"
+                  nativeID="password"
+                  passwordRules="minlength: 6;"
                   onSubmitEditing={handleLogin}
                 />
                 <TouchableOpacity
@@ -161,7 +162,7 @@ export default function LoginScreen() {
                   size={20}
                   color="#e21d38"
                 />
-                <Text style={styles.rememberMeText}>Remember my email</Text>
+                <Text style={styles.rememberMeText}>Remember my credentials</Text>
               </TouchableOpacity>
 
               <TouchableOpacity

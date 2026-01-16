@@ -11,26 +11,13 @@ import {
   Alert
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
-import { sendLocalNotification } from '../../utils/simpleNotificationService';
+import NotificationBadge from '../../components/NotificationBadge';
 
 // Import the logo using the correct path
 const LogoImage = require('../../assets/images/logo.jpg');
 
 // Custom Header Component
 const CustomHeader = () => {
-  const testNotification = async () => {
-    try {
-      await sendLocalNotification(
-        'Test Notification 🔔',
-        'Push notifications are working! New events will notify all users.',
-        { type: 'test' }
-      )
-      Alert.alert('Success', 'Test notification sent!')
-    } catch (error) {
-      Alert.alert('Error', 'Failed to send test notification.')
-    }
-  }
-
   return (
     <View style={styles.headerContainer}>
       <Image 
@@ -41,12 +28,7 @@ const CustomHeader = () => {
       <Text style={styles.headerTitle}>
         Bulgarian Sunderland{'\n'}Supporters Branch
       </Text>
-      <TouchableOpacity 
-        style={styles.testButton} 
-        onPress={testNotification}
-      >
-        <Ionicons name="notifications" size={20} color="#fff" />
-      </TouchableOpacity>
+      <NotificationBadge />
     </View>
   );
 };
@@ -169,10 +151,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
     flex: 1,
-  },
-  testButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
   },
 });

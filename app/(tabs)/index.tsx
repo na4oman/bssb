@@ -30,6 +30,9 @@ import {
   addEventComment,
   updateEventAttendance,
 } from '../../utils/eventService'
+import { uploadImage } from '../../utils/imageService'
+import { markEventAsSeen } from '../../utils/seenEventsService'
+import * as ImagePicker from 'expo-image-picker'
 
 // Constants
 const DEFAULT_EVENT_IMAGE =
@@ -55,6 +58,7 @@ export default function App() {
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [commentText, setCommentText] = useState('')
+  const [commentImage, setCommentImage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Subscribe to events from Firebase
@@ -136,17 +140,54 @@ export default function App() {
     }
   }
 
+  const pickCommentImage = async () => {
+    try {
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync()
+
+      if (!permissionResult.granted) {
+        Alert.alert(
+          'Permission Denied',
+          'Sorry, we need camera roll permissions to attach images!'
+        )
+        return
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+      })
+
+      if (!result.canceled) {
+        setCommentImage(result.assets[0].uri)
+      }
+    } catch (error) {
+      console.error('Error picking image:', error)
+      Alert.alert('Error', 'Unable to select image. Please try again.')
+    }
+  }
+
   const addComment = async (eventId: string) => {
-    if (!commentText.trim() || !user) return
+    if ((!commentText.trim() && !commentImage) || !user) return
 
     try {
+      let uploadedImageUrl: string | undefined
+
+      // Upload image if one was selected
+      if (commentImage) {
+        uploadedImageUrl = await uploadImage(commentImage, 'bssb-comments')
+      }
+
       await addEventComment(eventId, {
         userId: user.uid,
         userName: currentUser.userName,
         text: commentText,
+        imageUrl: uploadedImageUrl,
       })
 
       setCommentText('')
+      setCommentImage(null)
     } catch (error) {
       console.error('Error adding comment:', error)
       Alert.alert('Error', 'Failed to add comment. Please try again.')
@@ -173,6 +214,11 @@ export default function App() {
 
   const renderEventDetails = () => {
     if (!selectedEvent) return null
+
+    // Mark event as seen when opened
+    if (user) {
+      markEventAsSeen(user.uid, selectedEvent.id)
+    }
 
     // Find the most up-to-date event data from the events array
     const currentEvent = events.find(event => event.id === selectedEvent.id)
@@ -335,7 +381,16 @@ export default function App() {
               {currentEvent.comments.map(comment => (
                 <View key={comment.id} style={styles.commentItem}>
                   <Text style={styles.commentUserName}>{comment.userName}</Text>
-                  <Text style={styles.commentText}>{comment.text}</Text>
+                  {comment.text ? (
+                    <Text style={styles.commentText}>{comment.text}</Text>
+                  ) : null}
+                  {comment.imageUrl && (
+                    <Image
+                      source={{ uri: comment.imageUrl }}
+                      style={styles.commentImage}
+                      resizeMode='cover'
+                    />
+                  )}
                   <Text style={styles.commentTimestamp}>
                     {format(comment.timestamp, 'MMM dd, HH:mm')}
                   </Text>
@@ -345,19 +400,43 @@ export default function App() {
 
             {/* Add Comment */}
             <View style={styles.addCommentContainer}>
-              <TextInput
-                style={styles.commentInput}
-                value={commentText}
-                onChangeText={setCommentText}
-                placeholder='Add a comment...'
-                multiline
-              />
-              <TouchableOpacity
-                style={styles.sendCommentButton}
-                onPress={() => addComment(selectedEvent.id)}
-              >
-                <Ionicons name='send' size={20} color='#fff' />
-              </TouchableOpacity>
+              <View style={styles.commentInputWrapper}>
+                {commentImage && (
+                  <View style={styles.commentImagePreview}>
+                    <Image
+                      source={{ uri: commentImage }}
+                      style={styles.commentImagePreviewImage}
+                    />
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() => setCommentImage(null)}
+                    >
+                      <Ionicons name='close-circle' size={24} color='#e21d38' />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                <View style={styles.commentInputRow}>
+                  <TouchableOpacity
+                    style={styles.attachImageButton}
+                    onPress={pickCommentImage}
+                  >
+                    <Ionicons name='image-outline' size={24} color='#666' />
+                  </TouchableOpacity>
+                  <TextInput
+                    style={styles.commentInput}
+                    value={commentText}
+                    onChangeText={setCommentText}
+                    placeholder='Add a comment...'
+                    multiline
+                  />
+                  <TouchableOpacity
+                    style={styles.sendCommentButton}
+                    onPress={() => addComment(selectedEvent.id)}
+                  >
+                    <Ionicons name='send' size={20} color='#fff' />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -577,6 +656,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#666',
     lineHeight: 22,
+    marginBottom: 5,
+  },
+  commentImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginTop: 10,
+    marginBottom: 5,
   },
   commentTimestamp: {
     fontSize: 13,
@@ -584,16 +671,42 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   addCommentContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
     backgroundColor: 'white',
+    paddingBottom: 10,
+  },
+  commentInputWrapper: {
+    padding: 15,
+  },
+  commentImagePreview: {
+    position: 'relative',
+    marginBottom: 10,
+  },
+  commentImagePreviewImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: 'white',
+    borderRadius: 12,
+  },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  attachImageButton: {
+    padding: 8,
+    marginRight: 5,
   },
   commentInput: {
     flex: 1,
-    height: 40,
+    minHeight: 40,
+    maxHeight: 100,
     padding: 12,
     fontSize: 16,
     backgroundColor: '#f8f8f8',

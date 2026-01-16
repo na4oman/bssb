@@ -3,6 +3,7 @@ export type EventComment = {
   userId: string
   userName: string
   text: string
+  imageUrl?: string
   timestamp: Date
 }
 

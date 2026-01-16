@@ -14,6 +14,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { Ionicons } from '@expo/vector-icons'
 import { format } from 'date-fns'
 import { Event } from '@/types/event'
+import { uploadImage } from '@/utils/imageService'
 
 interface EventFormProps {
   onAddEvent: (
@@ -59,6 +60,8 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
           onCancel={() => setShowDatePicker(false)}
           date={newEvent.date}
           accentColor='#e21d38'
+          buttonTextColorIOS='#e21d38'
+          themeVariant='light'
         />
       </View>
     )
@@ -109,17 +112,35 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
     }
   }
 
-  const handleAddEvent = () => {
-    onAddEvent(newEvent)
-    // Reset form
-    setNewEvent({
-      title: '',
-      date: new Date(),
-      location: '',
-      description: '',
-      imageUrl: '',
-    })
-    onClose()
+  const handleAddEvent = async () => {
+    try {
+      let uploadedImageUrl = newEvent.imageUrl
+
+      // Upload image to Cloudinary if a local image was selected
+      if (newEvent.imageUrl && newEvent.imageUrl.startsWith('file://')) {
+        Alert.alert('Uploading', 'Uploading image...')
+        uploadedImageUrl = await uploadImage(newEvent.imageUrl, 'bssb-events')
+      }
+
+      // Create event with uploaded image URL
+      onAddEvent({
+        ...newEvent,
+        imageUrl: uploadedImageUrl,
+      })
+
+      // Reset form
+      setNewEvent({
+        title: '',
+        date: new Date(),
+        location: '',
+        description: '',
+        imageUrl: '',
+      })
+      onClose()
+    } catch (error) {
+      console.error('Error creating event:', error)
+      Alert.alert('Error', 'Failed to upload image. Please try again.')
+    }
   }
 
   return (
@@ -130,7 +151,7 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
     >
       <View style={styles.modalContent}>
         <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Ionicons name='close' size={24} color='white' />
+          <Ionicons name='close' size={24} color='#e21d38' />
         </TouchableOpacity>
 
         <Text style={styles.modalTitle}>Create New Event</Text>
@@ -139,7 +160,7 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
         <TextInput
           style={styles.input}
           placeholder='Enter event title'
-          placeholderTextColor='rgba(255,255,255,0.6)'
+          placeholderTextColor='rgba(92, 87, 87, 0.6)'
           value={newEvent.title}
           onChangeText={text =>
             setNewEvent(prev => ({
@@ -156,7 +177,7 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
         <TextInput
           style={styles.input}
           placeholder='Enter event location'
-          placeholderTextColor='rgba(255,255,255,0.6)'
+          placeholderTextColor='rgba(92, 87, 87, 0.6)'
           value={newEvent.location}
           onChangeText={text =>
             setNewEvent(prev => ({
@@ -170,7 +191,7 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
         <TextInput
           style={[styles.input, styles.multilineInput]}
           placeholder='Enter event description'
-          placeholderTextColor='rgba(255,255,255,0.6)'
+          placeholderTextColor='rgba(92, 87, 87, 0.6)'
           multiline={true}
           numberOfLines={4}
           value={newEvent.description}
@@ -188,7 +209,7 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
             style={styles.imagePickerButton}
             onPress={pickImage}
           >
-            <Ionicons name='image-outline' size={24} color='white' />
+            <Ionicons name='image-outline' size={24} color='rgba(92, 87, 87, 0.6)' />
             <Text style={styles.imagePickerText}>
               {newEvent.imageUrl ? 'Change Image' : 'Select Image'}
             </Text>
@@ -240,8 +261,9 @@ const styles = StyleSheet.create({
     top: 10,
     right: 10,
     zIndex: 10,
-    backgroundColor: '#fff',
-    borderRadius: 5,
+    backgroundColor: 'rgba(226, 29, 56, 0.1)',
+    borderRadius: 20,
+    padding: 8,
   },
   closeIcon: {
     color: '#e21d38', // Sunderland red for close icon

@@ -16,7 +16,7 @@ import { router } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
 import { getCurrentUser } from '../../utils/userUtils'
 import { Event } from '../../types/event'
-import { subscribeToEvents } from '../../utils/eventService'
+import { subscribeToEvents, deleteEvent } from '../../utils/eventService'
 import { format } from 'date-fns'
 import { updateProfile } from 'firebase/auth'
 import NotificationSettings from '../../components/NotificationSettings'
@@ -107,13 +107,43 @@ export default function ProfileScreen() {
     )
   }
 
+  const handleDeleteEvent = (eventId: string, eventTitle: string) => {
+    Alert.alert(
+      'Delete Event',
+      `Are you sure you want to delete "${eventTitle}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteEvent(eventId)
+              Alert.alert('Success', 'Event deleted successfully')
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to delete event')
+            }
+          }
+        }
+      ]
+    )
+  }
+
   const renderEventItem = ({ item }: { item: Event }) => (
     <View style={styles.eventItem}>
       <View style={styles.eventHeader}>
-        <Text style={styles.eventTitle}>{item.title}</Text>
-        <Text style={styles.eventDate}>
-          {format(item.date, 'MMM dd, yyyy')}
-        </Text>
+        <View style={styles.eventTitleContainer}>
+          <Text style={styles.eventTitle}>{item.title}</Text>
+          <Text style={styles.eventDate}>
+            {format(item.date, 'MMM dd, yyyy')}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteEvent(item.id, item.title)}
+        >
+          <Ionicons name="trash-outline" size={20} color="#e21d38" />
+        </TouchableOpacity>
       </View>
       <Text style={styles.eventLocation}>{item.location}</Text>
       <Text style={styles.eventDescription} numberOfLines={2}>
@@ -405,18 +435,27 @@ const styles = StyleSheet.create({
   eventHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 5,
+  },
+  eventTitleContainer: {
+    flex: 1,
+    marginRight: 10,
   },
   eventTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    flex: 1,
+    marginBottom: 3,
   },
   eventDate: {
     fontSize: 12,
     color: '#666',
+  },
+  deleteButton: {
+    padding: 8,
+    backgroundColor: 'rgba(226, 29, 56, 0.1)',
+    borderRadius: 8,
   },
   eventLocation: {
     fontSize: 14,
