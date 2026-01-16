@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,14 @@ import {
   Platform,
   Modal,
   ScrollView,
-  SafeAreaView
+  SafeAreaView,
+  Alert
 } from 'react-native';
 import axios from 'axios';
 import { footballDataApiKey } from '../../config.json';
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type MatchHead2Head = {
   numberOfMatches: number;
@@ -89,6 +92,47 @@ export default function FixturesScreen(): React.ReactElement {
   const [isTabChanging, setIsTabChanging] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<FixtureMatch | null>(null);
   const [matchDetailsModalVisible, setMatchDetailsModalVisible] = useState(false);
+  const [nextMatchCountdown, setNextMatchCountdown] = useState<string>('');
+  const [nextMatchForm, setNextMatchForm] = useState<{
+    homeTeam: string[];
+    awayTeam: string[];
+  } | null>(null);
+  const [matchReminders, setMatchReminders] = useState<{ [key: number]: string }>({});
+
+  // Countdown timer for next match
+  useEffect(() => {
+    if (fixtures.length === 0) return;
+
+    const nextMatch = fixtures[0];
+    const updateCountdown = () => {
+      const now = new Date().getTime();
+      const matchTime = new Date(nextMatch.utcDate).getTime();
+      const distance = matchTime - now;
+
+      if (distance < 0) {
+        setNextMatchCountdown('Match started!');
+        return;
+      }
+
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      if (days > 0) {
+        setNextMatchCountdown(`${days}d ${hours}h ${minutes}m`);
+      } else if (hours > 0) {
+        setNextMatchCountdown(`${hours}h ${minutes}m ${seconds}s`);
+      } else {
+        setNextMatchCountdown(`${minutes}m ${seconds}s`);
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [fixtures]);
 
   const fetchFixtures = useCallback(async () => {
     try {
@@ -143,6 +187,13 @@ export default function FixturesScreen(): React.ReactElement {
 
       setFixtures(sunderlandUpcomingFixtures);
       setPastFixtures(sunderlandPastFixtures);
+
+      // Fetch form for next match
+      if (sunderlandUpcomingFixtures.length > 0) {
+        const nextMatch = sunderlandUpcomingFixtures[0];
+        await fetchTeamsForm(nextMatch.homeTeam.id, nextMatch.awayTeam.id);
+      }
+
       setLoading(false);
     } catch (err) {
       console.error('Full Error Object:', err);
@@ -163,6 +214,144 @@ export default function FixturesScreen(): React.ReactElement {
       setLoading(false);
     }
   }, []);
+
+  const fetchTeamsForm = async (homeTeamId: number, awayTeamId: number) => {
+    try {
+      // Fetch last matches for both teams
+      const [homeTeamMatches, awayTeamMatches] = await Promise.all([
+        axios.get(`https://api.football-data.org/v4/teams/${homeTeamId}/matches`, {
+          headers: { 'X-Auth-Token': footballDataApiKey },
+          params: { status: 'FINISHED', limit: 5 }
+        }),
+        axios.get(`https://api.football-data.org/v4/teams/${awayTeamId}/matches`, {
+          headers: { 'X-Auth-Token': footballDataApiKey },
+          params: { status: 'FINISHED', limit: 5 }
+        })
+      ]);
+
+      const homeForm = homeTeamMatches.data.matches.map((match: FixtureMatch) => {
+        const isHome = match.homeTeam.id === homeTeamId;
+        const teamScore = isHome ? match.score?.fullTime?.home : match.score?.fullTime?.away;
+        const opponentScore = isHome ? match.score?.fullTime?.away : match.score?.fullTime?.home;
+
+        if (teamScore === null || teamScore === undefined || opponentScore === null || opponentScore === undefined) return 'U';
+        if (teamScore > opponentScore) return 'W';
+        if (teamScore < opponentScore) return 'L';
+        return 'D';
+      });
+
+      const awayForm = awayTeamMatches.data.matches.map((match: FixtureMatch) => {
+        const isHome = match.homeTeam.id === awayTeamId;
+        const teamScore = isHome ? match.score?.fullTime?.home : match.score?.fullTime?.away;
+        const opponentScore = isHome ? match.score?.fullTime?.away : match.score?.fullTime?.home;
+
+        if (teamScore === null || teamScore === undefined || opponentScore === null || opponentScore === undefined) return 'U';
+        if (teamScore > opponentScore) return 'W';
+        if (teamScore < opponentScore) return 'L';
+        return 'D';
+      });
+
+      setNextMatchForm({
+        homeTeam: homeForm,
+        awayTeam: awayForm
+      });
+    } catch (err) {
+      console.error('Error fetching teams form:', err);
+    }
+  };
+
+  // Load saved reminders
+  useEffect(() => {
+    const loadReminders = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('matchReminders');
+        if (saved) {
+          setMatchReminders(JSON.parse(saved));
+        }
+      } catch (error) {
+        console.error('Error loading reminders:', error);
+      }
+    };
+    loadReminders();
+  }, []);
+
+  const scheduleMatchReminder = async (match: FixtureMatch) => {
+    try {
+      // Request permissions
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please enable notifications to set reminders.');
+        return;
+      }
+
+      const matchDate = new Date(match.utcDate);
+      const now = new Date();
+
+      // Check if match is in the past
+      if (matchDate <= now) {
+        Alert.alert('Invalid Time', 'Cannot set reminder for past matches.');
+        return;
+      }
+
+      // Schedule notification 1 hour before match
+      const reminderTime = new Date(matchDate.getTime() - 60 * 60 * 1000);
+
+      // Calculate seconds until reminder
+      const secondsUntilReminder = Math.max(
+        10, // Minimum 10 seconds
+        Math.floor((reminderTime.getTime() - now.getTime()) / 1000)
+      );
+
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '⚽ Match Starting Soon!',
+          body: `${match.homeTeam.name} vs ${match.awayTeam.name} starts in 1 hour!`,
+          data: { matchId: match.id },
+        },
+        trigger: { seconds: secondsUntilReminder } as any,
+      });
+
+      // Save reminder
+      const newReminders = { ...matchReminders, [match.id]: notificationId };
+      setMatchReminders(newReminders);
+      await AsyncStorage.setItem('matchReminders', JSON.stringify(newReminders));
+
+      Alert.alert(
+        'Reminder Set!',
+        `You'll be notified 1 hour before ${match.homeTeam.name} vs ${match.awayTeam.name}`
+      );
+    } catch (error) {
+      console.error('Error scheduling reminder:', error);
+      Alert.alert('Error', 'Failed to set reminder. Please try again.');
+    }
+  };
+
+  const cancelMatchReminder = async (matchId: number) => {
+    try {
+      const notificationId = matchReminders[matchId];
+      if (notificationId) {
+        await Notifications.cancelScheduledNotificationAsync(notificationId);
+        
+        const newReminders = { ...matchReminders };
+        delete newReminders[matchId];
+        setMatchReminders(newReminders);
+        await AsyncStorage.setItem('matchReminders', JSON.stringify(newReminders));
+
+        Alert.alert('Reminder Cancelled', 'Match reminder has been removed.');
+      }
+    } catch (error) {
+      console.error('Error cancelling reminder:', error);
+      Alert.alert('Error', 'Failed to cancel reminder.');
+    }
+  };
+
+  const toggleReminder = (match: FixtureMatch) => {
+    if (matchReminders[match.id]) {
+      cancelMatchReminder(match.id);
+    } else {
+      scheduleMatchReminder(match);
+    }
+  };
 
   const fetchMatchDetails = async (matchId: number): Promise<FixtureMatch | undefined> => {
     try {
@@ -197,13 +386,24 @@ export default function FixturesScreen(): React.ReactElement {
   };
 
   const renderFixtureItem = ({ item, isPast }: { item: FixtureMatch, isPast?: boolean }) => {
+    const hasReminder = matchReminders[item.id];
+    
     return (
-      <View 
-        style={styles.fixtureItem}
-        // onPress={() => openMatchDetails(item)}
-      >
+      <View style={styles.fixtureItem}>
         <View style={styles.dateContainer}>
           <Text style={styles.dateText}>{formatDate(item.utcDate)}</Text>
+          {!isPast && (
+            <TouchableOpacity
+              style={styles.reminderButton}
+              onPress={() => toggleReminder(item)}
+            >
+              <Ionicons
+                name={hasReminder ? 'notifications' : 'notifications-outline'}
+                size={20}
+                color={hasReminder ? '#e21d38' : '#666'}
+              />
+            </TouchableOpacity>
+          )}
         </View>
         <View style={styles.matchContainer}>
           <View style={styles.teamContainer}>
@@ -269,6 +469,76 @@ export default function FixturesScreen(): React.ReactElement {
       month: 'short',
       year: 'numeric'
     });
+  };
+
+  const renderFormBadge = (result: string) => {
+    let backgroundColor = '#ccc';
+    if (result === 'W') backgroundColor = '#4CAF50';
+    if (result === 'L') backgroundColor = '#f44336';
+    if (result === 'D') backgroundColor = '#FF9800';
+
+    return (
+      <View key={Math.random()} style={[styles.formBadge, { backgroundColor }]}>
+        <Text style={styles.formBadgeText}>{result}</Text>
+      </View>
+    );
+  };
+
+  const renderNextMatchCountdown = () => {
+    if (fixtures.length === 0 || activeTab !== 'upcoming') return null;
+
+    const nextMatch = fixtures[0];
+    const hasReminder = matchReminders[nextMatch.id];
+    
+    return (
+      <View style={styles.countdownContainer}>
+        <View style={styles.countdownHeader}>
+          <Ionicons name="time-outline" size={24} color="#e21d38" />
+          <Text style={styles.countdownTitle}>Next Match</Text>
+          <TouchableOpacity
+            style={styles.countdownReminderButton}
+            onPress={() => toggleReminder(nextMatch)}
+          >
+            <Ionicons
+              name={hasReminder ? 'notifications' : 'notifications-outline'}
+              size={24}
+              color={hasReminder ? '#e21d38' : '#666'}
+            />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.countdownMatchInfo}>
+          <View style={styles.countdownTeams}>
+            <View style={styles.countdownTeamColumn}>
+              <Image source={{ uri: nextMatch.homeTeam.crest }} style={styles.countdownLogo} />
+              {nextMatchForm && nextMatchForm.homeTeam.length > 0 && (
+                <View style={styles.teamFormBadges}>
+                  {nextMatchForm.homeTeam.map((result, index) => (
+                    <View key={index}>
+                      {renderFormBadge(result)}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+            <Text style={styles.countdownVs}>vs</Text>
+            <View style={styles.countdownTeamColumn}>
+              <Image source={{ uri: nextMatch.awayTeam.crest }} style={styles.countdownLogo} />
+              {nextMatchForm && nextMatchForm.awayTeam.length > 0 && (
+                <View style={styles.teamFormBadges}>
+                  {nextMatchForm.awayTeam.map((result, index) => (
+                    <View key={index}>
+                      {renderFormBadge(result)}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+          <Text style={styles.countdownTimer}>{nextMatchCountdown}</Text>
+          <Text style={styles.countdownDate}>{formatDate(nextMatch.utcDate)}</Text>
+        </View>
+      </View>
+    );
   };
 
   const renderMatchDetailsModal = () => {
@@ -356,6 +626,10 @@ export default function FixturesScreen(): React.ReactElement {
   }
 
   const currentFixtures = activeTab === 'upcoming' ? fixtures : pastFixtures;
+  // Skip first match in upcoming tab since it's shown in the Next Match card
+  const listFixtures = activeTab === 'upcoming' && currentFixtures.length > 0 
+    ? currentFixtures.slice(1) 
+    : currentFixtures;
 
   return (
     <SafeAreaView style={styles.safeAreaContainer}>
@@ -403,12 +677,13 @@ export default function FixturesScreen(): React.ReactElement {
           </View>
         ) : (
           <FlatList
-            data={currentFixtures}
+            data={listFixtures}
             keyExtractor={(item) => item.id.toString()}
             renderItem={({ item }) => renderFixtureItem({ 
               item, 
               isPast: activeTab === 'past' 
             })}
+            ListHeaderComponent={activeTab === 'upcoming' ? renderNextMatchCountdown : null}
             contentContainerStyle={styles.listContainer}
           />
         )}
@@ -463,12 +738,18 @@ const styles = StyleSheet.create({
     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
   },
   dateContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 10,
+    paddingHorizontal: 5,
   },
   dateText: {
     color: '#666',
     fontSize: 12,
+  },
+  reminderButton: {
+    padding: 4,
   },
   matchContainer: {
     flexDirection: 'row',
@@ -538,6 +819,89 @@ const styles = StyleSheet.create({
   noDataText: {
     color: '#666',
     fontSize: 16,
+  },
+  countdownContainer: {
+    backgroundColor: 'white',
+    marginHorizontal: 0,
+    marginBottom: 15,
+    padding: 20,
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  countdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 15,
+    position: 'relative',
+  },
+  countdownTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 8,
+  },
+  countdownReminderButton: {
+    position: 'absolute',
+    right: 0,
+    padding: 4,
+  },
+  countdownMatchInfo: {
+    alignItems: 'center',
+  },
+  countdownTeams: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    marginBottom: 15,
+    width: '100%',
+  },
+  countdownTeamColumn: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  countdownLogo: {
+    width: 50,
+    height: 50,
+    marginBottom: 10,
+  },
+  teamFormBadges: {
+    flexDirection: 'row',
+    gap: 3,
+    justifyContent: 'center',
+  },
+  countdownVs: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#666',
+    marginHorizontal: 15,
+    marginTop: 15,
+  },
+  countdownTimer: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#e21d38',
+    marginBottom: 5,
+  },
+  countdownDate: {
+    fontSize: 14,
+    color: '#666',
+  },
+  formBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  formBadgeText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 10,
   },
   modalSafeArea: {
     flex: 1,
