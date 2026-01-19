@@ -1,27 +1,28 @@
 import { initializeApp } from 'firebase/app'
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth'
+import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
-import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage'
 
+// Direct configuration - this ensures it works in production builds
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyCzvTjOga8WxaTaQknnlh8cxpT5Qp7Nb6g",
+  authDomain: "safc-8863b.firebaseapp.com",
+  projectId: "safc-8863b",
+  storageBucket: "safc-8863b.firebasestorage.app",
+  messagingSenderId: "661308293819",
+  appId: "1:661308293819:web:21092699f39a75f11cdf9e",
+  measurementId: "G-B6RPB5DFQR"
 }
+
+console.log('Firebase Config loaded successfully')
 
 const app = initializeApp(firebaseConfig)
 
-// Initialize Auth with AsyncStorage persistence
-const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
-})
-
+// Use regular getAuth instead of initializeAuth
+const auth = getAuth(app)
 const db = getFirestore(app)
 const storage = getStorage(app)
+
+console.log('Firebase initialized successfully')
 
 export { app, auth, db, storage }

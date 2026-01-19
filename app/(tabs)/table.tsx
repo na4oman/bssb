@@ -10,7 +10,7 @@ import {
   Dimensions,
 } from 'react-native';
 import axios from 'axios';
-import { footballDataApiKey } from '../../config.json';
+import { footballDataApiKey } from '../../config/config';
 
 type TeamStats = {
   position: number;

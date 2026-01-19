@@ -12,8 +12,20 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
 } from 'firebase/auth'
+
+console.log('AuthContext: Starting to import Firebase auth...')
+
+try {
+  const { auth } = require('../config/firebase')
+  console.log('AuthContext: Firebase auth imported successfully')
+} catch (error) {
+  console.error('AuthContext: Error importing Firebase:', error)
+}
+
 import { auth } from '../config/firebase'
 import { setupNotifications, setupNotificationListeners } from '../utils/simpleNotificationService'
+
+console.log('AuthContext: All imports completed')
 
 type AuthContextType = {
   user: User | null

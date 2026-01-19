@@ -169,16 +169,35 @@ export default function App() {
   }
 
   const addComment = async (eventId: string) => {
-    if ((!commentText.trim() && !commentImage) || !user) return
+    console.log('addComment called with eventId:', eventId)
+    console.log('commentText:', commentText)
+    console.log('commentImage:', commentImage)
+    console.log('user:', user)
+    
+    if ((!commentText.trim() && !commentImage) || !user) {
+      console.log('Validation failed - missing text/image or user not logged in')
+      return
+    }
 
     try {
       let uploadedImageUrl: string | undefined
 
       // Upload image if one was selected
       if (commentImage) {
-        uploadedImageUrl = await uploadImage(commentImage, 'bssb-comments')
+        try {
+          console.log('Attempting to upload image to Cloudinary...')
+          uploadedImageUrl = await uploadImage(commentImage, 'bssb-comments')
+          console.log('Image uploaded successfully:', uploadedImageUrl)
+        } catch (imageError) {
+          console.error('Image upload failed, posting comment without image:', imageError)
+          // Continue without image if upload fails
+          uploadedImageUrl = undefined
+        }
       }
 
+      console.log('Adding comment to event:', eventId)
+      console.log('User info:', { uid: user.uid, userName: currentUser.userName })
+      
       await addEventComment(eventId, {
         userId: user.uid,
         userName: currentUser.userName,
@@ -186,11 +205,12 @@ export default function App() {
         imageUrl: uploadedImageUrl,
       })
 
+      console.log('Comment added successfully')
       setCommentText('')
       setCommentImage(null)
     } catch (error) {
       console.error('Error adding comment:', error)
-      Alert.alert('Error', 'Failed to add comment. Please try again.')
+      Alert.alert('Error', `Failed to add comment: ${error.message || error}`)
     }
   }
 

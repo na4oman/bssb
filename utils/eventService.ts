@@ -135,11 +135,19 @@ export const addEventComment = async (
     console.log('Adding comment to event:', eventId, comment)
     
     const eventRef = doc(db, EVENTS_COLLECTION, eventId)
-    const newComment = {
-      ...comment,
+    
+    // Build comment object without undefined values
+    const newComment: any = {
       id: Date.now().toString(),
+      userId: comment.userId,
+      userName: comment.userName,
+      text: comment.text || '', // Ensure text is never undefined
       timestamp: new Date(), // Use regular Date instead of serverTimestamp()
-      imageUrl: comment.imageUrl || undefined, // Include imageUrl if provided
+    }
+    
+    // Only add imageUrl if it exists and is not undefined/null
+    if (comment.imageUrl && comment.imageUrl.trim() !== '') {
+      newComment.imageUrl = comment.imageUrl
     }
     
     console.log('New comment object:', newComment)
@@ -148,9 +156,9 @@ export const addEventComment = async (
       comments: arrayUnion(newComment),
     })
     
-    console.log('Comment added successfully')
+    console.log('Comment added successfully to Firestore')
   } catch (error) {
-    console.error('Error adding comment:', error)
+    console.error('Error adding comment to Firestore:', error)
     throw error
   }
 }

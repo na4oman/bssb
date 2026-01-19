@@ -15,7 +15,7 @@ import { format, differenceInDays } from 'date-fns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import Constants from 'expo-constants';
-import { newsApiKey } from '../../config.json';
+import { newsApiKey } from '../../config/config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
