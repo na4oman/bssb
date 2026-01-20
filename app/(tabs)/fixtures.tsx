@@ -83,12 +83,49 @@ type FixtureMatch = {
   head2head?: MatchHead2Head;
 };
 
+type TeamStatistics = {
+  id: number;
+  name: string;
+  crest: string;
+  founded: number;
+  venue: string;
+  runningCompetitions: Array<{
+    id: number;
+    name: string;
+    code: string;
+    type: string;
+    emblem: string;
+  }>;
+};
+
+type MatchStatistics = {
+  totalMatches: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsScored: number;
+  goalsConceded: number;
+  cleanSheets: number;
+  homeRecord: {
+    matches: number;
+    wins: number;
+    draws: number;
+    losses: number;
+  };
+  awayRecord: {
+    matches: number;
+    wins: number;
+    draws: number;
+    losses: number;
+  };
+};
+
 export default function FixturesScreen(): React.ReactElement {
   const [fixtures, setFixtures] = useState<FixtureMatch[]>([]);
   const [pastFixtures, setPastFixtures] = useState<FixtureMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'stats'>('upcoming');
   const [isTabChanging, setIsTabChanging] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<FixtureMatch | null>(null);
   const [matchDetailsModalVisible, setMatchDetailsModalVisible] = useState(false);
@@ -98,6 +135,9 @@ export default function FixturesScreen(): React.ReactElement {
     awayTeam: string[];
   } | null>(null);
   const [matchReminders, setMatchReminders] = useState<{ [key: number]: string }>({});
+  const [teamStats, setTeamStats] = useState<TeamStatistics | null>(null);
+  const [matchStats, setMatchStats] = useState<MatchStatistics | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Countdown timer for next match
   useEffect(() => {
@@ -259,6 +299,127 @@ export default function FixturesScreen(): React.ReactElement {
       console.error('Error fetching teams form:', err);
     }
   };
+
+  // Calculate match statistics from fixtures data
+  const calculateMatchStatistics = useCallback((sunderlandTeamId: number): MatchStatistics => {
+    const allMatches = [...pastFixtures]; // Only use completed matches
+    const sunderlandMatches = allMatches.filter(match => 
+      (match.homeTeam.id === sunderlandTeamId || match.awayTeam.id === sunderlandTeamId) &&
+      match.score?.fullTime?.home !== null && match.score?.fullTime?.away !== null
+    );
+
+    let wins = 0, draws = 0, losses = 0;
+    let goalsScored = 0, goalsConceded = 0, cleanSheets = 0;
+    let homeWins = 0, homeDraws = 0, homeLosses = 0, homeMatches = 0;
+    let awayWins = 0, awayDraws = 0, awayLosses = 0, awayMatches = 0;
+
+    sunderlandMatches.forEach(match => {
+      const isHome = match.homeTeam.id === sunderlandTeamId;
+      const sunderlandGoals = isHome ? match.score!.fullTime!.home! : match.score!.fullTime!.away!;
+      const opponentGoals = isHome ? match.score!.fullTime!.away! : match.score!.fullTime!.home!;
+
+      goalsScored += sunderlandGoals;
+      goalsConceded += opponentGoals;
+
+      if (opponentGoals === 0) cleanSheets++;
+
+      if (sunderlandGoals > opponentGoals) {
+        wins++;
+        if (isHome) { homeWins++; homeMatches++; }
+        else { awayWins++; awayMatches++; }
+      } else if (sunderlandGoals === opponentGoals) {
+        draws++;
+        if (isHome) { homeDraws++; homeMatches++; }
+        else { awayDraws++; awayMatches++; }
+      } else {
+        losses++;
+        if (isHome) { homeLosses++; homeMatches++; }
+        else { awayLosses++; awayMatches++; }
+      }
+    });
+
+    return {
+      totalMatches: sunderlandMatches.length,
+      wins,
+      draws,
+      losses,
+      goalsScored,
+      goalsConceded,
+      cleanSheets,
+      homeRecord: {
+        matches: homeMatches,
+        wins: homeWins,
+        draws: homeDraws,
+        losses: homeLosses,
+      },
+      awayRecord: {
+        matches: awayMatches,
+        wins: awayWins,
+        draws: awayDraws,
+        losses: awayLosses,
+      },
+    };
+  }, [pastFixtures]);
+
+  // Fetch team statistics
+  const fetchTeamStatistics = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      // Get Sunderland team ID from fixtures data
+      let sunderlandTeamId = null;
+      
+      // Try to find Sunderland team ID from existing fixtures
+      if (fixtures.length > 0) {
+        const sunderlandMatch = fixtures.find(match => 
+          match.homeTeam.name.includes('Sunderland') || match.awayTeam.name.includes('Sunderland')
+        );
+        if (sunderlandMatch) {
+          sunderlandTeamId = sunderlandMatch.homeTeam.name.includes('Sunderland') 
+            ? sunderlandMatch.homeTeam.id 
+            : sunderlandMatch.awayTeam.id;
+        }
+      }
+      
+      // If not found in upcoming, try past fixtures
+      if (!sunderlandTeamId && pastFixtures.length > 0) {
+        const sunderlandMatch = pastFixtures.find(match => 
+          match.homeTeam.name.includes('Sunderland') || match.awayTeam.name.includes('Sunderland')
+        );
+        if (sunderlandMatch) {
+          sunderlandTeamId = sunderlandMatch.homeTeam.name.includes('Sunderland') 
+            ? sunderlandMatch.homeTeam.id 
+            : sunderlandMatch.awayTeam.id;
+        }
+      }
+      
+      if (!sunderlandTeamId) {
+        setError('Could not find Sunderland team ID');
+        return;
+      }
+
+      console.log('Found Sunderland team ID:', sunderlandTeamId);
+      console.log('Fetching team stats for:', sunderlandTeamId);
+      
+      const response = await axios.get(`https://api.football-data.org/v4/teams/${sunderlandTeamId}`, {
+        headers: {
+          'X-Auth-Token': footballDataApiKey,
+        },
+      });
+
+      setTeamStats(response.data);
+      
+      // Calculate match statistics from fixtures data
+      const matchStatistics = calculateMatchStatistics(sunderlandTeamId);
+      setMatchStats(matchStatistics);
+      console.log('Match Statistics:', matchStatistics);
+    } catch (err) {
+      console.error('Error fetching team statistics:', err);
+      let errorMessage = 'Failed to fetch team statistics';
+      setError(errorMessage);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [fixtures, pastFixtures, calculateMatchStatistics]);
 
   // Load saved reminders
   useEffect(() => {
@@ -483,7 +644,7 @@ export default function FixturesScreen(): React.ReactElement {
     );
   };
 
-  const handleTabChange = useCallback((tab: 'upcoming' | 'past') => {
+  const handleTabChange = useCallback((tab: 'upcoming' | 'past' | 'stats') => {
     console.log(`Tab change initiated: ${tab}`);
     if (isTabChanging) return;
 
@@ -640,6 +801,13 @@ export default function FixturesScreen(): React.ReactElement {
     fetchFixtures();
   }, [fetchFixtures]);
 
+  // Auto-fetch team stats when fixtures are loaded and stats tab is active
+  useEffect(() => {
+    if (activeTab === 'stats' && !teamStats && !statsLoading && (fixtures.length > 0 || pastFixtures.length > 0)) {
+      fetchTeamStatistics();
+    }
+  }, [activeTab, teamStats, statsLoading, fixtures, pastFixtures, fetchTeamStatistics]);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safeAreaContainer}>
@@ -663,7 +831,7 @@ export default function FixturesScreen(): React.ReactElement {
     );
   }
 
-  const currentFixtures = activeTab === 'upcoming' ? fixtures : pastFixtures;
+  const currentFixtures = activeTab === 'upcoming' ? fixtures : activeTab === 'past' ? pastFixtures : [];
   // Skip first match in upcoming tab since it's shown in the Next Match card
   const listFixtures = activeTab === 'upcoming' && currentFixtures.length > 0 
     ? currentFixtures.slice(1) 
@@ -703,9 +871,164 @@ export default function FixturesScreen(): React.ReactElement {
               Past
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity 
+            style={[
+              styles.tabButton, 
+              activeTab === 'stats' && styles.activeTabButton
+            ]}
+            onPress={() => {
+              handleTabChange('stats');
+              // Only fetch team stats if we have fixture data and haven't fetched stats yet
+              if (activeTab !== 'stats' && !teamStats && (fixtures.length > 0 || pastFixtures.length > 0)) {
+                fetchTeamStatistics();
+              }
+            }}
+            disabled={isTabChanging}
+          >
+            <Text style={[
+              styles.tabButtonText, 
+              activeTab === 'stats' && styles.activeTabButtonText
+            ]}>
+              Stats
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {currentFixtures.length === 0 ? (
+        {activeTab === 'stats' ? (
+          statsLoading ? (
+            <View style={styles.noDataContainer}>
+              <ActivityIndicator size="large" color="#e21d38" />
+              <Text style={styles.noDataText}>Loading team statistics...</Text>
+            </View>
+          ) : teamStats ? (
+            <ScrollView style={styles.statsContainer} contentContainerStyle={styles.statsContent}>
+              {/* Team Header */}
+              <View style={styles.teamHeader}>
+                <Image source={{ uri: teamStats.crest }} style={styles.teamCrest} />
+                <View style={styles.teamInfo}>
+                  <Text style={styles.statsTeamName}>{teamStats.name}</Text>
+                  <Text style={styles.teamDetails}>Founded: {teamStats.founded}</Text>
+                  <Text style={styles.teamDetails}>Venue: {teamStats.venue}</Text>
+                </View>
+              </View>
+
+              {/* Competitions */}
+              <View style={styles.statsSection}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="trophy-outline" size={24} color="#e21d38" />
+                  <Text style={styles.sectionTitle}>Current Competitions</Text>
+                </View>
+                {teamStats.runningCompetitions.map((competition) => (
+                  <View key={competition.id} style={styles.competitionCard}>
+                    <Image source={{ uri: competition.emblem }} style={styles.competitionEmblem} />
+                    <View style={styles.competitionInfo}>
+                      <Text style={styles.competitionName}>{competition.name}</Text>
+                      <Text style={styles.competitionType}>{competition.type}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              {/* Season Statistics */}
+              {matchStats && (
+                <>
+                  {/* Overall Record */}
+                  <View style={styles.statsSection}>
+                    <View style={styles.sectionHeader}>
+                      <Ionicons name="stats-chart-outline" size={24} color="#e21d38" />
+                      <Text style={styles.sectionTitle}>Season Record</Text>
+                    </View>
+                    <View style={styles.statsGrid}>
+                      <View style={styles.statCard}>
+                        <Text style={styles.statNumber}>{matchStats.totalMatches}</Text>
+                        <Text style={styles.statLabel}>Matches</Text>
+                      </View>
+                      <View style={styles.statCard}>
+                        <Text style={[styles.statNumber, { color: '#4CAF50' }]}>{matchStats.wins}</Text>
+                        <Text style={styles.statLabel}>Wins</Text>
+                      </View>
+                      <View style={styles.statCard}>
+                        <Text style={[styles.statNumber, { color: '#FF9800' }]}>{matchStats.draws}</Text>
+                        <Text style={styles.statLabel}>Draws</Text>
+                      </View>
+                      <View style={styles.statCard}>
+                        <Text style={[styles.statNumber, { color: '#F44336' }]}>{matchStats.losses}</Text>
+                        <Text style={styles.statLabel}>Losses</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Goals Statistics */}
+                  <View style={styles.statsSection}>
+                    <View style={styles.sectionHeader}>
+                      <Ionicons name="football-outline" size={24} color="#e21d38" />
+                      <Text style={styles.sectionTitle}>Goals & Defense</Text>
+                    </View>
+                    <View style={styles.statsGrid}>
+                      <View style={styles.statCard}>
+                        <Text style={[styles.statNumber, { color: '#4CAF50' }]}>{matchStats.goalsScored}</Text>
+                        <Text style={styles.statLabel}>Goals Scored</Text>
+                      </View>
+                      <View style={styles.statCard}>
+                        <Text style={[styles.statNumber, { color: '#F44336' }]}>{matchStats.goalsConceded}</Text>
+                        <Text style={styles.statLabel}>Goals Conceded</Text>
+                      </View>
+                      <View style={styles.statCard}>
+                        <Text style={[styles.statNumber, { color: '#2196F3' }]}>{matchStats.cleanSheets}</Text>
+                        <Text style={styles.statLabel}>Clean Sheets</Text>
+                      </View>
+                      <View style={styles.statCard}>
+                        <Text style={[styles.statNumber, { color: '#9C27B0' }]}>
+                          {matchStats.totalMatches > 0 ? (matchStats.goalsScored - matchStats.goalsConceded > 0 ? '+' : '') + (matchStats.goalsScored - matchStats.goalsConceded) : '0'}
+                        </Text>
+                        <Text style={styles.statLabel}>Goal Difference</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Home vs Away */}
+                  <View style={styles.statsSection}>
+                    <View style={styles.sectionHeader}>
+                      <Ionicons name="home-outline" size={24} color="#e21d38" />
+                      <Text style={styles.sectionTitle}>Home vs Away</Text>
+                    </View>
+                    <View style={styles.homeAwayContainer}>
+                      <View style={styles.homeAwayCard}>
+                        <Text style={styles.homeAwayTitle}>🏠 Home</Text>
+                        <Text style={styles.homeAwayRecord}>
+                          {matchStats.homeRecord.wins}W - {matchStats.homeRecord.draws}D - {matchStats.homeRecord.losses}L
+                        </Text>
+                        <Text style={styles.homeAwayMatches}>{matchStats.homeRecord.matches} matches</Text>
+                      </View>
+                      <View style={styles.homeAwayCard}>
+                        <Text style={styles.homeAwayTitle}>✈️ Away</Text>
+                        <Text style={styles.homeAwayRecord}>
+                          {matchStats.awayRecord.wins}W - {matchStats.awayRecord.draws}D - {matchStats.awayRecord.losses}L
+                        </Text>
+                        <Text style={styles.homeAwayMatches}>{matchStats.awayRecord.matches} matches</Text>
+                      </View>
+                    </View>
+                  </View>
+                </>
+              )}
+
+              {/* Note about more stats */}
+              <View style={styles.noteContainer}>
+                <Ionicons name="information-circle-outline" size={20} color="#666" />
+                <Text style={styles.noteText}>
+                  More detailed statistics like goals, wins/losses, and league position will be available in future updates.
+                </Text>
+              </View>
+            </ScrollView>
+          ) : (
+            <View style={styles.noDataContainer}>
+              <Text style={styles.noDataText}>Failed to load team statistics</Text>
+              <TouchableOpacity onPress={fetchTeamStatistics} style={styles.retryButton}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )
+        ) : currentFixtures.length === 0 ? (
           <View style={styles.noDataContainer}>
             <Text style={styles.noDataText}>
               {activeTab === 'upcoming' 
@@ -997,5 +1320,160 @@ const styles = StyleSheet.create({
   matchDetailValue: {
     fontSize: 14,
     color: '#333',
+  },
+  // Stats Tab Styles
+  statsContainer: {
+    flex: 1,
+  },
+  statsContent: {
+    padding: 15,
+  },
+  teamHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  teamCrest: {
+    width: 60,
+    height: 60,
+    marginRight: 15,
+  },
+  teamInfo: {
+    flex: 1,
+  },
+  statsTeamName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  teamDetails: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 2,
+  },
+  statsSection: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 10,
+  },
+  competitionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  competitionEmblem: {
+    width: 30,
+    height: 30,
+    marginRight: 12,
+  },
+  competitionInfo: {
+    flex: 1,
+  },
+  competitionName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  competitionType: {
+    fontSize: 14,
+    color: '#666',
+    textTransform: 'capitalize',
+  },
+  noteContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 15,
+    marginTop: 10,
+  },
+  noteText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 10,
+    lineHeight: 20,
+  },
+  // Match Statistics Styles
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  statCard: {
+    width: '48%',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  homeAwayContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  homeAwayCard: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 15,
+    marginHorizontal: 5,
+    alignItems: 'center',
+  },
+  homeAwayTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  homeAwayRecord: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#e21d38',
+    marginBottom: 4,
+  },
+  homeAwayMatches: {
+    fontSize: 12,
+    color: '#666',
   },
 });

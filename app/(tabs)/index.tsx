@@ -99,8 +99,23 @@ export default function App() {
       // Create event in Firebase
       await createEvent(eventWithCreator)
 
-      // Close modal
+      // Close modal first
       setModalVisible(false)
+
+      // Show success message
+      Alert.alert(
+        'Success! 🎉',
+        'Event created successfully!',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Optional: You could navigate to events tab here if needed
+              console.log('Event creation completed')
+            }
+          }
+        ]
+      )
 
       // Send push notifications (optional - implement if needed)
       // try {

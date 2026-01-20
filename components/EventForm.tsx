@@ -116,17 +116,23 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
     try {
       let uploadedImageUrl = newEvent.imageUrl
 
+      // Show creating event message
+      Alert.alert('Creating Event', 'Please wait...')
+
       // Upload image to Cloudinary if a local image was selected
       if (newEvent.imageUrl && newEvent.imageUrl.startsWith('file://')) {
-        Alert.alert('Uploading', 'Uploading image...')
+        console.log('Uploading image to Cloudinary...')
         uploadedImageUrl = await uploadImage(newEvent.imageUrl, 'bssb-events')
+        console.log('Image uploaded successfully:', uploadedImageUrl)
       }
 
       // Create event with uploaded image URL
-      onAddEvent({
+      await onAddEvent({
         ...newEvent,
         imageUrl: uploadedImageUrl,
       })
+
+      console.log('Event created successfully')
 
       // Reset form
       setNewEvent({
@@ -136,10 +142,11 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
         description: '',
         imageUrl: '',
       })
-      onClose()
+
+      // The modal will be closed by the parent component after successful creation
     } catch (error) {
       console.error('Error creating event:', error)
-      Alert.alert('Error', 'Failed to upload image. Please try again.')
+      Alert.alert('Error', 'Failed to create event. Please try again.')
     }
   }
 
