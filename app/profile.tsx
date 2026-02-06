@@ -16,7 +16,9 @@ import { router } from 'expo-router'
 import { useAuth } from '../contexts/AuthContext'
 import { getCurrentUser } from '../utils/userUtils'
 import { Event } from '../types/event'
+import { Post } from '../types/post'
 import { subscribeToEvents, deleteEvent } from '../utils/eventService'
+import { subscribeToPosts, deletePost } from '../utils/postService'
 import { format } from 'date-fns'
 import { updateProfile } from 'firebase/auth'
 import NotificationSettings from '../components/NotificationSettings'
@@ -33,6 +35,8 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(false)
   const [userEvents, setUserEvents] = useState<Event[]>([])
   const [eventsLoading, setEventsLoading] = useState(true)
+  const [userPosts, setUserPosts] = useState<Post[]>([])
+  const [postsLoading, setPostsLoading] = useState(true)
 
   // Redirect to login if user becomes null (logged out)
   useEffect(() => {
@@ -50,6 +54,25 @@ export default function ProfileScreen() {
         )
         setUserEvents(myEvents)
         setEventsLoading(false)
+      })
+
+      return () => unsubscribe()
+    }
+  }, [user])
+
+  // Load user's created posts
+  useEffect(() => {
+    if (user) {
+      console.log('Profile: Subscribing to posts for user:', user.uid)
+      const unsubscribe = subscribeToPosts((allPosts) => {
+        console.log('Profile: Received posts:', allPosts.length)
+        const myPosts = allPosts.filter(post => 
+          post.createdBy.userId === user.uid
+        )
+        console.log('Profile: My posts:', myPosts.length, 'User ID:', user.uid)
+        console.log('Profile: Post creators:', allPosts.map(p => p.createdBy.userId))
+        setUserPosts(myPosts)
+        setPostsLoading(false)
       })
 
       return () => unsubscribe()
@@ -98,6 +121,30 @@ export default function ProfileScreen() {
     )
   }
 
+  const handleDeletePost = (postId: string, postTitle: string) => {
+    Alert.alert(
+      'Delete Post',
+      `Are you sure you want to delete "${postTitle}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (user) {
+                await deletePost(postId, user.uid)
+                Alert.alert('Success', 'Post deleted successfully')
+              }
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to delete post')
+            }
+          }
+        }
+      ]
+    )
+  }
+
   const renderEventItem = ({ item }: { item: Event }) => (
     <View style={styles.eventItem}>
       <View style={styles.eventHeader}>
@@ -130,6 +177,38 @@ export default function ProfileScreen() {
         <View style={styles.statItem}>
           <Ionicons name="people" size={16} color="#666" />
           <Text style={styles.statText}>{item.attendees.length}</Text>
+        </View>
+      </View>
+    </View>
+  )
+
+  const renderPostItem = ({ item }: { item: Post }) => (
+    <View style={styles.postItem}>
+      <View style={styles.postHeader}>
+        <View style={styles.postTitleContainer}>
+          <Text style={styles.postTitle}>{item.title}</Text>
+          <Text style={styles.postDate}>
+            {format(item.createdAt, 'MMM dd, yyyy')}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeletePost(item.id, item.title)}
+        >
+          <Ionicons name="trash-outline" size={20} color="#e21d38" />
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.postContent} numberOfLines={3}>
+        {item.content}
+      </Text>
+      <View style={styles.postStats}>
+        <View style={styles.statItem}>
+          <Ionicons name="heart" size={16} color="#e21d38" />
+          <Text style={styles.statText}>{item.likes.length}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Ionicons name="chatbubble" size={16} color="#666" />
+          <Text style={styles.statText}>{item.comments.length}</Text>
         </View>
       </View>
     </View>
@@ -211,16 +290,15 @@ export default function ProfileScreen() {
             <Text style={styles.statLabel}>Events Created</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>
-              {userEvents.reduce((total, event) => total + event.likes.length, 0)}
-            </Text>
-            <Text style={styles.statLabel}>Total Likes</Text>
+            <Text style={styles.statNumber}>{userPosts.length}</Text>
+            <Text style={styles.statLabel}>Posts Created</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>
-              {userEvents.reduce((total, event) => total + event.attendees.length, 0)}
+              {userEvents.reduce((total, event) => total + event.likes.length, 0) +
+               userPosts.reduce((total, post) => total + post.likes.length, 0)}
             </Text>
-            <Text style={styles.statLabel}>Total Attendees</Text>
+            <Text style={styles.statLabel}>Total Likes</Text>
           </View>
         </View>
 
@@ -246,6 +324,30 @@ export default function ProfileScreen() {
               <Text style={styles.emptyStateText}>No events created yet</Text>
               <Text style={styles.emptyStateSubtext}>
                 Go to the Events tab to create your first event!
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* My Posts Section */}
+        <View style={styles.postsSection}>
+          <Text style={styles.sectionTitle}>My Posts</Text>
+          {postsLoading ? (
+            <Text style={styles.loadingText}>Loading your posts...</Text>
+          ) : userPosts.length > 0 ? (
+            <FlatList
+              data={userPosts}
+              renderItem={renderPostItem}
+              keyExtractor={(item) => item.id}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="newspaper-outline" size={48} color="#ccc" />
+              <Text style={styles.emptyStateText}>No posts created yet</Text>
+              <Text style={styles.emptyStateSubtext}>
+                Go to the Posts tab to create your first post!
               </Text>
             </View>
           )}
@@ -400,6 +502,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 30,
   },
+  postsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 30,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -462,6 +568,50 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   eventStats: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  postItem: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  postHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 5,
+  },
+  postTitleContainer: {
+    flex: 1,
+    marginRight: 10,
+  },
+  postTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 3,
+  },
+  postDate: {
+    fontSize: 12,
+    color: '#666',
+  },
+  postContent: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+    lineHeight: 20,
+  },
+  postStats: {
     flexDirection: 'row',
     gap: 15,
   },

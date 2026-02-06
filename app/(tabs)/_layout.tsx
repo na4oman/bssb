@@ -85,12 +85,22 @@ function TabsLayout() {
           }} 
         />
         <Tabs.Screen 
+          name="posts" 
+          options={{
+            title: 'Posts',
+            tabBarLabel: 'Posts',
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="newspaper-outline" size={24} color={color} />
+            )
+          }} 
+        />
+        <Tabs.Screen 
           name="news" 
           options={{
             title: 'News',
             tabBarLabel: 'News',
             tabBarIcon: ({ color }) => (
-              <Ionicons name="newspaper-outline" size={24} color={color} />
+              <Ionicons name="globe-outline" size={24} color={color} />
             )
           }} 
         />

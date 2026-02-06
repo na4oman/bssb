@@ -12,6 +12,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
 } from 'firebase/auth'
+import { doc, setDoc, getDoc } from 'firebase/firestore'
 
 console.log('AuthContext: Starting to import Firebase auth...')
 
@@ -22,7 +23,7 @@ try {
   console.error('AuthContext: Error importing Firebase:', error)
 }
 
-import { auth } from '../config/firebase'
+import { auth, db } from '../config/firebase'
 import { setupNotifications, setupNotificationListeners } from '../utils/simpleNotificationService'
 
 console.log('AuthContext: All imports completed')
@@ -91,7 +92,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signup = async (email: string, password: string) => {
     try {
       setError(null)
-      await createUserWithEmailAndPassword(auth, email, password)
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      
+      // Create user document in Firestore
+      const userName = email.split('@')[0] // Use email prefix as default username
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        email: email,
+        userName: userName,
+        isAdmin: false, // Default to non-admin
+        createdAt: new Date(),
+      })
+      
+      console.log('User document created in Firestore')
     } catch (error: any) {
       setError(error.message || 'Signup failed')
       throw error
