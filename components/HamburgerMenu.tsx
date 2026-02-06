@@ -18,6 +18,15 @@ const HamburgerMenu = () => {
 
   const menuItems = [
     {
+      id: 'profile',
+      title: 'Profile',
+      icon: 'person-outline',
+      onPress: () => {
+        setIsMenuVisible(false);
+        router.push('/profile');
+      },
+    },
+    {
       id: 'notifications',
       title: 'Notifications',
       icon: 'notifications-outline',

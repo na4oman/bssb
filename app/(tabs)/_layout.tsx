@@ -117,11 +117,7 @@ function TabsLayout() {
         <Tabs.Screen 
           name="profile" 
           options={{
-            title: 'Profile',
-            tabBarLabel: 'Profile',
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="person-outline" size={24} color={color} />
-            )
+            href: null, // Hide from tabs
           }} 
         />
       </Tabs>
