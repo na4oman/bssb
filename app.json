@@ -7,7 +7,7 @@
     "icon": "./assets/images/sunderland-afc-logo.png",
     "scheme": "bssb-dev",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -16,7 +16,6 @@
     },
     "android": {
       "adaptiveIcon": {
-        // "foregroundImage": "./assets/images/adaptive-icon.png",
         "foregroundImage": "./assets/images/sunderland-afc-logo.png",
         "backgroundColor": "#ffffff"
       },

@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import * as Notifications from 'expo-notifications'
 import { useAuth } from '../contexts/AuthContext'
-import { sendLocalNotification } from '../utils/simpleNotificationService'
+import { sendLocalNotification, setupNotifications } from '../utils/simpleNotificationService'
 
 export default function NotificationSettings() {
   const { user } = useAuth()
@@ -58,6 +58,38 @@ export default function NotificationSettings() {
       Alert.alert('Success', 'Test notification sent!')
     } catch (error) {
       Alert.alert('Error', 'Failed to send test notification.')
+    }
+  }
+
+  const registerPushToken = async () => {
+    if (!notificationsEnabled) {
+      Alert.alert('Error', 'Please enable notifications first.')
+      return
+    }
+
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to register for notifications.')
+      return
+    }
+
+    try {
+      Alert.alert('Registering...', 'Please wait while we register your device for notifications.')
+      const success = await setupNotifications(user.uid)
+      
+      if (success) {
+        Alert.alert(
+          'Success! ✅',
+          'Your device is now registered for push notifications. You will receive notifications when marked as paid.'
+        )
+      } else {
+        Alert.alert(
+          'Failed',
+          'Could not register for notifications. Please check your permissions and try again.'
+        )
+      }
+    } catch (error) {
+      console.error('Error registering push token:', error)
+      Alert.alert('Error', 'Failed to register push token.')
     }
   }
 
@@ -150,6 +182,15 @@ export default function NotificationSettings() {
             <Ionicons name="send" size={20} color="#fff" />
             <Text style={styles.testButtonText}>Send Test Notification</Text>
           </TouchableOpacity>
+
+          {/* Register token button */}
+          <TouchableOpacity 
+            style={[styles.testButton, styles.registerButton]} 
+            onPress={registerPushToken}
+          >
+            <Ionicons name="refresh" size={20} color="#fff" />
+            <Text style={styles.testButtonText}>Re-register Push Token</Text>
+          </TouchableOpacity>
         </>
       )}
     </View>
@@ -218,6 +259,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 10,
     gap: 8,
+  },
+  registerButton: {
+    backgroundColor: '#4CAF50',
   },
   testButtonText: {
     color: 'white',

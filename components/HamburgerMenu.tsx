@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,19 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { router } from 'expo-router';
+import { checkIsUserAdmin } from '../utils/userService';
 
 const HamburgerMenu = () => {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { user, signOut } = useAuth();
+
+  // Check if user is admin
+  useEffect(() => {
+    if (user) {
+      checkIsUserAdmin(user.uid).then(setIsAdmin);
+    }
+  }, [user]);
 
   const menuItems = [
     {
@@ -26,6 +35,16 @@ const HamburgerMenu = () => {
         router.push('/profile');
       },
     },
+    ...(isAdmin ? [{
+      id: 'users',
+      title: 'Users Management',
+      icon: 'people-outline',
+      onPress: () => {
+        setIsMenuVisible(false);
+        router.push('/users');
+      },
+      isAdminOnly: true,
+    }] : []),
     {
       id: 'notifications',
       title: 'Notifications',
@@ -107,22 +126,34 @@ const HamburgerMenu = () => {
               {menuItems.map((item) => (
                 <TouchableOpacity
                   key={item.id}
-                  style={styles.menuItem}
+                  style={[
+                    styles.menuItem,
+                    (item as any).isAdminOnly && styles.adminMenuItem
+                  ]}
                   onPress={item.onPress}
                 >
                   <Ionicons
                     name={item.icon as any}
                     size={24}
-                    color={item.isDanger ? '#e21d38' : '#333'}
+                    color={
+                      (item as any).isAdminOnly ? '#FF9800' :
+                      item.isDanger ? '#e21d38' : '#333'
+                    }
                   />
                   <Text
                     style={[
                       styles.menuItemText,
                       item.isDanger && styles.dangerText,
+                      (item as any).isAdminOnly && styles.adminText,
                     ]}
                   >
                     {item.title}
                   </Text>
+                  {(item as any).isAdminOnly && (
+                    <View style={styles.adminBadge}>
+                      <Text style={styles.adminBadgeText}>Admin</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -195,13 +226,32 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
+  adminMenuItem: {
+    backgroundColor: '#FFF3E0',
+  },
   menuItemText: {
     marginLeft: 15,
     fontSize: 16,
     color: '#333',
+    flex: 1,
   },
   dangerText: {
     color: '#e21d38',
+  },
+  adminText: {
+    color: '#FF9800',
+    fontWeight: '600',
+  },
+  adminBadge: {
+    backgroundColor: '#FF9800',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  adminBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });
 

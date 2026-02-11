@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
 import { Platform } from 'react-native'
+import { doc, setDoc } from 'firebase/firestore'
+import { db } from '../config/firebase'
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -11,7 +13,7 @@ Notifications.setNotificationHandler({
   }),
 })
 
-export async function setupNotifications(): Promise<boolean> {
+export async function setupNotifications(userId?: string): Promise<boolean> {
   let hasPermission = false
   
   if (Platform.OS === 'android') {
@@ -36,6 +38,30 @@ export async function setupNotifications(): Promise<boolean> {
     if (finalStatus === 'granted') {
       hasPermission = true
       console.log('Notification permissions granted')
+      
+      // Get and save Expo Push Token
+      if (userId) {
+        try {
+          // Use Expo's push notification service (no FCM required)
+          const expoPushToken = await Notifications.getExpoPushTokenAsync()
+          const token = expoPushToken.data
+          console.log('📱 Expo Push Token obtained:', token)
+          
+          // Save token to Firestore
+          await setDoc(doc(db, 'users', userId, 'tokens', token), {
+            token,
+            userId,
+            createdAt: new Date(),
+            platform: Platform.OS,
+          })
+          console.log('✅ Push token saved to Firestore successfully')
+        } catch (error) {
+          console.error('❌ Error getting/saving push token:', error)
+          // Don't fail completely - permissions are still granted
+        }
+      } else {
+        console.log('⚠️ No userId provided - skipping token registration')
+      }
     } else {
       console.log('Notification permissions denied')
     }

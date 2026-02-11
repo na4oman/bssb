@@ -21,6 +21,8 @@ import { subscribeToEvents, deleteEvent } from '../../utils/eventService'
 import { subscribeToPosts, deletePost } from '../../utils/postService'
 import { format } from 'date-fns'
 import { updateProfile } from 'firebase/auth'
+import { doc, onSnapshot } from 'firebase/firestore'
+import { db } from '../../config/firebase'
 import NotificationSettings from '../../components/NotificationSettings'
 
 const DEFAULT_AVATAR = 'https://via.placeholder.com/100x100.png?text=User'
@@ -37,6 +39,8 @@ export default function ProfileScreen() {
   const [eventsLoading, setEventsLoading] = useState(true)
   const [userPosts, setUserPosts] = useState<Post[]>([])
   const [postsLoading, setPostsLoading] = useState(true)
+  const [userPaidStatus, setUserPaidStatus] = useState(false)
+  const [loadingPaidStatus, setLoadingPaidStatus] = useState(true)
 
   // Redirect to login if user becomes null (logged out)
   useEffect(() => {
@@ -72,6 +76,22 @@ export default function ProfileScreen() {
         )
         setUserPosts(myPosts)
         setPostsLoading(false)
+      })
+
+      return () => unsubscribe()
+    }
+  }, [user])
+
+  // Subscribe to user's paid status
+  useEffect(() => {
+    if (user) {
+      const userRef = doc(db, 'users', user.uid)
+      const unsubscribe = onSnapshot(userRef, (doc) => {
+        if (doc.exists()) {
+          const data = doc.data()
+          setUserPaidStatus(data.paid || false)
+        }
+        setLoadingPaidStatus(false)
       })
 
       return () => unsubscribe()
@@ -317,6 +337,35 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Membership Status */}
+        {!loadingPaidStatus && (
+          <View style={styles.membershipContainer}>
+            <View style={styles.membershipCard}>
+              <View style={styles.membershipHeader}>
+                <Ionicons 
+                  name={userPaidStatus ? 'checkmark-circle' : 'alert-circle-outline'} 
+                  size={24} 
+                  color={userPaidStatus ? '#4CAF50' : '#FF9800'} 
+                />
+                <Text style={styles.membershipTitle}>Membership Status</Text>
+              </View>
+              <View style={[
+                styles.membershipBadge,
+                userPaidStatus ? styles.membershipBadgePaid : styles.membershipBadgeUnpaid
+              ]}>
+                <Text style={styles.membershipBadgeText}>
+                  {userPaidStatus ? '✓ Paid' : 'Pending Payment'}
+                </Text>
+              </View>
+              {!userPaidStatus && (
+                <Text style={styles.membershipNote}>
+                  Please contact an admin to confirm your membership payment
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Notification Settings */}
         <NotificationSettings />
 
@@ -499,6 +548,58 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     textAlign: 'center',
+  },
+  membershipContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  membershipCard: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  membershipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  membershipTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 10,
+  },
+  membershipBadge: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  membershipBadgePaid: {
+    backgroundColor: '#4CAF50',
+  },
+  membershipBadgeUnpaid: {
+    backgroundColor: '#FF9800',
+  },
+  membershipBadgeText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  membershipNote: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   eventsSection: {
     paddingHorizontal: 20,

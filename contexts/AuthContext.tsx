@@ -66,7 +66,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (user) {
         // Setup notifications when user logs in
         try {
-          const hasPermission = await setupNotifications()
+          const hasPermission = await setupNotifications(user.uid)
           setNotificationsEnabled(hasPermission)
           console.log('Notifications setup:', hasPermission ? 'Success' : 'Failed')
         } catch (error) {
@@ -100,6 +100,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email: email,
         userName: userName,
         isAdmin: false, // Default to non-admin
+        paid: false, // Default to unpaid
         createdAt: new Date(),
       })
       
