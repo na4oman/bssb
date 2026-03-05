@@ -40,7 +40,7 @@ A comprehensive mobile application for the Bulgarian Sunderland AFC supporters c
 <div align="center">
   <img src="screenshots/01-login.png" width="250" alt="Login Screen" />
   <img src="screenshots/02-fixtures.png" width="250" alt="Fixtures & Stats" />
-  <img src="screenshots/03-events.png" width="250" alt="Community Events" />
+  <img src="screenshots/07-events.png" width="250" alt="Community Events" />
 </div>
 
 <div align="center">
