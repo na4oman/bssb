@@ -12,9 +12,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { router } from 'expo-router';
 import { checkIsUserAdmin } from '../utils/userService';
+import StatsUpdateModal from './StatsUpdateModal';
 
 const HamburgerMenu = () => {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [showStatsModal, setShowStatsModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const { user, signOut } = useAuth();
 
@@ -42,6 +44,15 @@ const HamburgerMenu = () => {
       onPress: () => {
         setIsMenuVisible(false);
         router.push('/users');
+      },
+      isAdminOnly: true,
+    }, {
+      id: 'updateStats',
+      title: 'Update Team Stats',
+      icon: 'stats-chart-outline',
+      onPress: () => {
+        setIsMenuVisible(false);
+        setShowStatsModal(true);
       },
       isAdminOnly: true,
     }] : []),
@@ -160,6 +171,12 @@ const HamburgerMenu = () => {
           </View>
         </Pressable>
       </Modal>
+
+      {/* Stats Update Modal */}
+      <StatsUpdateModal
+        visible={showStatsModal}
+        onClose={() => setShowStatsModal(false)}
+      />
     </>
   );
 };

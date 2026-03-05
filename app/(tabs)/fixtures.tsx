@@ -18,6 +18,7 @@ import { footballDataApiKey } from '../../config/config';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getTeamStats } from '../../utils/statsService';
 
 type MatchHead2Head = {
   numberOfMatches: number;
@@ -335,13 +336,18 @@ export default function FixturesScreen(): React.ReactElement {
 
       const html = response.data;
       
+      // Log a sample of the HTML to help debug
+      console.log('ESPN HTML sample (first 500 chars):', html.substring(0, 500));
+      console.log('Searching for "Top Scorers" in HTML:', html.includes('Top Scorers'));
+      console.log('Searching for "Top Assists" in HTML:', html.includes('Top Assists'));
+      
       // Parse Top Scorers
       const scorersMatch = html.match(/Top ScorersRKNamePG(.*?)Top Assists/s);
       const scorers: PlayerScorer[] = [];
       
       if (scorersMatch && scorersMatch[1]) {
         const scorersText = scorersMatch[1];
-        console.log('Raw scorers text:', scorersText);
+        console.log('Raw scorers text:', scorersText.substring(0, 200));
         
         // Parse format: "1Brian Brobbey1952Wilson Isidor214..."
         // Pattern: rank + name + matches (2 digits) + goals (1 digit)
@@ -361,6 +367,8 @@ export default function FixturesScreen(): React.ReactElement {
             goalsPerMatch: parsedMatches > 0 ? parsedGoals / parsedMatches : 0
           });
         }
+      } else {
+        console.log('❌ Could not find Top Scorers section in HTML');
       }
       
       // Parse Top Assists
@@ -369,7 +377,7 @@ export default function FixturesScreen(): React.ReactElement {
       
       if (assistsMatch && assistsMatch[1]) {
         const assistsText = assistsMatch[1].substring(0, 200); // Limit to avoid parsing too much
-        console.log('Raw assists text:', assistsText);
+        console.log('Raw assists text:', assistsText.substring(0, 200));
         
         // Parse format: "1Granit Xhaka2252Enzo Le Fée234..."
         // Pattern: rank + name + matches (2 digits) + assists (1 digit)
@@ -389,19 +397,21 @@ export default function FixturesScreen(): React.ReactElement {
             assistsPerMatch: parsedMatches > 0 ? parsedAssists / parsedMatches : 0
           });
         }
+      } else {
+        console.log('❌ Could not find Top Assists section in HTML');
       }
       
       if (scorers.length > 0 || assists.length > 0) {
-        console.log('Parsed ESPN scorers:', scorers);
-        console.log('Parsed ESPN assists:', assists);
+        console.log('✅ Parsed ESPN scorers:', scorers);
+        console.log('✅ Parsed ESPN assists:', assists);
         return { scorers, assists };
       }
       
-      console.log('Could not parse ESPN data');
+      console.log('⚠️ Could not parse ESPN data - HTML structure may have changed');
       return { scorers: [], assists: [] };
       
     } catch (error) {
-      console.error('Error fetching from ESPN:', error);
+      console.error('❌ Error fetching from ESPN:', error);
       return { scorers: [], assists: [] };
     }
   }, []);
@@ -411,10 +421,20 @@ export default function FixturesScreen(): React.ReactElement {
     try {
       console.log('Fetching top scorers and assists for team ID:', sunderlandTeamId);
       
-      // First, try ESPN scraping for most up-to-date data
+      // First, try to get stats from Firestore (most reliable)
+      const firestoreStats = await getTeamStats();
+      
+      if (firestoreStats && firestoreStats.scorers.length > 0) {
+        console.log('✅ Using Firestore stats (last updated:', firestoreStats.lastUpdated, ')');
+        setTopScorers(firestoreStats.scorers);
+        setTopAssists(firestoreStats.assists);
+        return;
+      }
+      
+      // If Firestore is empty, try ESPN scraping for most up-to-date data
       const espnData = await fetchTopScorersFromESPN();
       if (espnData.scorers.length > 0) {
-        console.log('Using ESPN data');
+        console.log('✅ Using ESPN data');
         setTopScorers(espnData.scorers);
         setTopAssists(espnData.assists);
         return;
@@ -998,7 +1018,7 @@ export default function FixturesScreen(): React.ReactElement {
     if (activeTab === 'stats' && !teamStats && !statsLoading && (fixtures.length > 0 || pastFixtures.length > 0)) {
       fetchTeamStatistics();
     }
-  }, [activeTab, teamStats, statsLoading, fixtures, pastFixtures, fetchTeamStatistics]);
+  }, [activeTab, teamStats, statsLoading, fixtures.length, pastFixtures.length]);
 
   if (loading) {
     return (
@@ -1205,8 +1225,21 @@ export default function FixturesScreen(): React.ReactElement {
                   {/* Top Scorers */}
                   <View style={styles.statsSection}>
                     <View style={styles.sectionHeader}>
-                      <Ionicons name="medal-outline" size={24} color="#e21d38" />
-                      <Text style={styles.sectionTitle}>Top Scorers</Text>
+                      <View style={styles.sectionTitleContainer}>
+                        <Ionicons name="medal-outline" size={24} color="#e21d38" />
+                        <Text style={styles.sectionTitle}>Top Scorers</Text>
+                      </View>
+                      <TouchableOpacity 
+                        onPress={() => fetchTeamStatistics()}
+                        style={styles.refreshButton}
+                        disabled={statsLoading}
+                      >
+                        <Ionicons 
+                          name="refresh" 
+                          size={20} 
+                          color={statsLoading ? "#ccc" : "#e21d38"} 
+                        />
+                      </TouchableOpacity>
                     </View>
                     {topScorers.length > 0 ? (
                       <>
@@ -1635,13 +1668,23 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 15,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
     marginLeft: 10,
+  },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
   },
   competitionCard: {
     flexDirection: 'row',

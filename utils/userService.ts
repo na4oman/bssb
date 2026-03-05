@@ -149,30 +149,8 @@ export const toggleUserPaidStatus = async (
       paid: paid,
     });
 
-    // Send push notification if user is marked as paid
-    if (paid) {
-      console.log(`Attempting to send notification to user: ${userName} (${userId})`);
-      const tokens = await getUserPushTokens(userId);
-      
-      if (tokens.length > 0) {
-        const title = '✅ Payment Confirmed';
-        const body = `Your membership payment has been confirmed. Thank you for your support!`;
-        
-        console.log(`Sending notification to ${tokens.length} device(s)`);
-        
-        // Send notification to all user's devices
-        for (const token of tokens) {
-          await sendPushNotification(token, title, body);
-        }
-        
-        console.log(`✅ Sent payment confirmation notification to ${userName}`);
-      } else {
-        console.log(`⚠️ No push tokens found for ${userName}. User may need to:
-        1. Open the app
-        2. Grant notification permissions
-        3. Wait for token to be registered`);
-      }
-    }
+    console.log(`✅ Updated paid status for ${userName} to ${paid ? 'paid' : 'unpaid'}`);
+    console.log('💡 User will see payment status when they log in');
   } catch (error) {
     console.error('Error updating paid status:', error);
     throw error;

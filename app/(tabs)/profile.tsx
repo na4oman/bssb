@@ -318,6 +318,21 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Payment Confirmation Banner */}
+        {!loadingPaidStatus && userPaidStatus && (
+          <View style={styles.confirmationBanner}>
+            <View style={styles.bannerContent}>
+              <Ionicons name="checkmark-circle" size={32} color="#4CAF50" />
+              <View style={styles.bannerText}>
+                <Text style={styles.bannerTitle}>✅ Payment Confirmed!</Text>
+                <Text style={styles.bannerMessage}>
+                  Your membership payment has been confirmed. Thank you for your support!
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Stats Section */}
         <View style={styles.statsSection}>
           <View style={styles.statCard}>
@@ -600,6 +615,42 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  confirmationBanner: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  bannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bannerText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  bannerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2E7D32',
+    marginBottom: 4,
+  },
+  bannerMessage: {
+    fontSize: 14,
+    color: '#388E3C',
+    lineHeight: 20,
   },
   eventsSection: {
     paddingHorizontal: 20,
