@@ -10,7 +10,7 @@
 
 ## Phase 0 — Groundwork (small)
 
-- [ ] Create a `notifications` collection in Firestore. Design (per-user documents):
+- [x] Create a `notifications` collection in Firestore. Design (per-user documents):
   ```ts
   notifications/{autoId} {
     userId: string,          // recipient
@@ -22,23 +22,26 @@
     createdAt: serverTimestamp()
   }
   ```
-- [ ] Add Firestore indexes if a compound query (userId + createdAt desc) requires it (`firestore.indexes.json`).
-- [ ] Check `firestore.rules` — allow users to read/write only their own `notifications/{id}` (where `userId == request.auth.uid`). Add rules accordingly.
+- [x] Add Firestore indexes if a compound query (userId + createdAt desc) requires it (`firestore.indexes.json`).
+- [x] Check `firestore.rules` — allow users to read/write only their own `notifications/{id}` (where `userId == request.auth.uid`). Add rules accordingly.
+  > ⚠️ **Needs deploy** (Firebase CLI not installed locally): `npx firebase-tools deploy --only firestore:rules,firestore:indexes` after `firebase login`.
 
 ## Phase 1 — Notification feed service (shared web + mobile)
 
-- [ ] New `utils/notificationFeedService.ts`:
-  - `addNotification(userId, { type, title, message, eventId? })` → `addDoc` to `notifications`.
-  - `subscribeToNotifications(userId, callback)` → `onSnapshot` query `where('userId', '==', userId)` ordered by `createdAt desc`.
-  - `markNotificationRead(notificationId)` → `updateDoc({ read: true })`.
-  - `markAllNotificationsRead(userId)` (optional).
-- [ ] Wire the **same triggers that already send mobile push** to ALSO write a feed doc (in `utils/eventService.ts`; keep push calls untouched):
-  - [ ] `createEvent` → feed entry for all users (`notifyAllUsers` path) — or per-user writes.
-  - [ ] `toggleEventLike` → feed entry for the event creator.
-  - [ ] `addEventComment` → feed entry for the event creator.
-  - [ ] `updateEventAttendance` → feed entry for the event creator.
-  - [ ] Payment confirmed → feed entry (wherever the payment push is sent, `utils/userService.ts`).
-- [ ] Confirm mobile push calls remain byte-for-byte unchanged (regression check).
+- [x] New `utils/notificationFeedService.ts`:
+  - [x] `addNotification(userId, { type, title, message, eventId? })` → `addDoc` to `notifications`.
+  - [x] `addNotificationToAllUsers(notification, excludeUserId?)` → broadcast feed writes (mirrors `notifyAllUsers`).
+  - [x] `subscribeToNotifications(userId, callback)` → `onSnapshot` query `where('userId', '==', userId)` ordered by `createdAt desc`.
+  - [x] `markNotificationRead(notificationId)` → `updateDoc({ read: true })`.
+  - [x] `markAllNotificationsRead(userId)` (optional).
+- [x] Wire the **same triggers that already send mobile push** to ALSO write a feed doc (in `utils/eventService.ts`; keep push calls untouched):
+  - [x] `createEvent` → feed entry for all users (`addNotificationToAllUsers`, excludes creator).
+  - [x] `toggleEventLike` → feed entry for the event creator.
+  - [x] `addEventComment` → feed entry for the event creator.
+  - [x] `updateEventAttendance` → feed entry for the event creator.
+  - [x] Payment confirmed → feed entry in `toggleUserPaidStatus` (`utils/userService.ts`).
+- [x] Confirm mobile push calls remain byte-for-byte unchanged (regression check).
+  > ℹ️ Note: the `getUserPushTokens`/`sendPushNotification` helpers in `utils/userService.ts` are currently **unused (dead code)** — the payment push is not actually wired to send. Only the feed entry was added; the mobile push for payments is unchanged (it never fired).
 
 ## Phase 2 — Notification center UI (works on web AND mobile)
 

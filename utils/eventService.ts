@@ -18,6 +18,7 @@ import { db } from '../config/firebase'
 import { Event, EventComment, EventAttendee } from '../types/event'
 import { notifyAllUsers } from '../utils/simpleNotificationService'
 import { sendNotificationToUser } from '../utils/pushNotificationService'
+import { addNotification, addNotificationToAllUsers } from '../utils/notificationFeedService'
 
 const EVENTS_COLLECTION = 'events'
 
@@ -84,6 +85,23 @@ export const createEvent = async (
       // Don't throw here - event creation should succeed even if notification fails
     }
     
+    // Add in-app feed notification for the new event (web + mobile notification center)
+    try {
+      await addNotificationToAllUsers(
+        {
+          type: 'new_event',
+          title: 'New Event Created! 🎉',
+          message: `${eventData.title} - ${eventData.location}`,
+          eventId: docRef.id,
+        },
+        eventData.createdBy?.userId
+      )
+      console.log('Event feed notification added')
+    } catch (feedError) {
+      console.error('Error adding event feed notification:', feedError)
+      // Don't throw here - event creation should succeed even if the feed write fails
+    }
+    
     return docRef.id
   } catch (error) {
     console.error('Error creating event:', error)
@@ -133,12 +151,20 @@ export const toggleEventLike = async (
       const eventData = eventSnap.data()
       const creatorId = eventData?.createdBy?.userId
       if (creatorId && creatorId !== userId) {
+        // Push notification (unchanged)
         await sendNotificationToUser(
           creatorId,
           'New like ❤️',
           `${likerName || 'Someone'} liked ${eventData?.title || 'your event'}`,
           { eventId, type: 'like' }
         )
+        // In-app feed notification
+        await addNotification(creatorId, {
+          type: 'like',
+          title: 'New like ❤️',
+          message: `${likerName || 'Someone'} liked ${eventData?.title || 'your event'}`,
+          eventId,
+        })
       }
     }
   } catch (error) {
@@ -181,12 +207,20 @@ export const addEventComment = async (
     const eventData = eventSnap.data()
     const creatorId = eventData?.createdBy?.userId
     if (creatorId && creatorId !== comment.userId) {
+      // Push notification (unchanged)
       await sendNotificationToUser(
         creatorId,
         'New comment 💬',
         `${comment.userName} commented on ${eventData?.title || 'your event'}`,
         { eventId, type: 'comment' }
       )
+      // In-app feed notification
+      await addNotification(creatorId, {
+        type: 'comment',
+        title: 'New comment 💬',
+        message: `${comment.userName} commented on ${eventData?.title || 'your event'}`,
+        eventId,
+      })
     }
     
     console.log('Comment added successfully to Firestore')
@@ -232,12 +266,22 @@ export const updateEventAttendance = async (
               : attendee.status === 'maybe'
                 ? 'is a maybe'
                 : 'is going'
+          const title = 'New RSVP 📋'
+          const message = `${attendee.userName} ${statusText} to ${currentEvent.title || 'your event'}`
+          // Push notification (unchanged)
           await sendNotificationToUser(
             creatorId,
-            'New RSVP 📋',
-            `${attendee.userName} ${statusText} to ${currentEvent.title || 'your event'}`,
+            title,
+            message,
             { eventId, type: 'attendance' }
           )
+          // In-app feed notification
+          await addNotification(creatorId, {
+            type: 'attendance',
+            title,
+            message,
+            eventId,
+          })
           console.log('Attendance notification sent')
         }
       } catch (notificationError) {

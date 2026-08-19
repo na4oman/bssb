@@ -10,6 +10,7 @@ import {
   where
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { addNotification } from './notificationFeedService';
 
 const USERS_COLLECTION = 'users';
 
@@ -151,6 +152,20 @@ export const toggleUserPaidStatus = async (
 
     console.log(`✅ Updated paid status for ${userName} to ${paid ? 'paid' : 'unpaid'}`);
     console.log('💡 User will see payment status when they log in');
+
+    // In-app feed notification when membership payment is confirmed
+    if (paid) {
+      try {
+        await addNotification(userId, {
+          type: 'payment_confirmed',
+          title: 'Payment Confirmed ✅',
+          message: 'Your membership payment has been confirmed. Thank you for your support!',
+        });
+        console.log('✅ Payment confirmation feed notification added');
+      } catch (error) {
+        console.error('Error adding payment feed notification:', error);
+      }
+    }
   } catch (error) {
     console.error('Error updating paid status:', error);
     throw error;
