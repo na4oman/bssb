@@ -416,37 +416,75 @@ export default function FixturesScreen(): React.ReactElement {
     }
   }, []);
 
-  // Fetch top scorers and assists from API or ESPN
-  const fetchTopScorers = useCallback(async (sunderlandTeamId: number) => {
+  const STATS_CACHE_KEY = 'lastFetchedTeamStats';
+
+  const persistFetchedStats = useCallback(async (scorers: PlayerScorer[], assists: PlayerAssist[]) => {
     try {
-      console.log('Fetching top scorers and assists for team ID:', sunderlandTeamId);
-      
-      // First, try to get stats from Firestore (most reliable)
-      const firestoreStats = await getTeamStats();
-      
-      if (firestoreStats && firestoreStats.scorers.length > 0) {
-        console.log('✅ Using Firestore stats (last updated:', firestoreStats.lastUpdated, ')');
-        setTopScorers(firestoreStats.scorers);
-        setTopAssists(firestoreStats.assists);
-        return;
+      await AsyncStorage.setItem(
+        STATS_CACHE_KEY,
+        JSON.stringify({ scorers, assists, savedAt: Date.now() })
+      );
+    } catch (error) {
+      console.error('Error caching team stats:', error);
+    }
+  }, []);
+
+  const loadStaleStats = useCallback(async (): Promise<{ scorers: PlayerScorer[]; assists: PlayerAssist[] } | null> => {
+    try {
+      const cached = await AsyncStorage.getItem(STATS_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.scorers?.length || parsed?.assists?.length) {
+          return { scorers: parsed.scorers || [], assists: parsed.assists || [] };
+        }
       }
-      
-      // If Firestore is empty, try ESPN scraping for most up-to-date data
+    } catch (error) {
+      console.error('Error reading cached team stats:', error);
+    }
+
+    try {
+      const firestoreStats = await getTeamStats();
+      if (firestoreStats && (firestoreStats.scorers.length > 0 || firestoreStats.assists.length > 0)) {
+        return { scorers: firestoreStats.scorers, assists: firestoreStats.assists };
+      }
+    } catch (error) {
+      console.error('Error loading Firestore team stats:', error);
+    }
+
+    return null;
+  }, []);
+
+  // Fetch top scorers and assists from ESPN/API; keep last fetch if live sources fail
+  const fetchTopScorers = useCallback(async (sunderlandTeamId: number) => {
+    console.log('Fetching top scorers and assists for team ID:', sunderlandTeamId);
+
+    const staleStats = await loadStaleStats();
+    if (staleStats) {
+      console.log('Showing last fetched stats while refreshing');
+      setTopScorers(staleStats.scorers);
+      setTopAssists(staleStats.assists);
+    }
+
+    try {
       const espnData = await fetchTopScorersFromESPN();
-      if (espnData.scorers.length > 0) {
+      if (espnData.scorers.length > 0 || espnData.assists.length > 0) {
         console.log('✅ Using ESPN data');
         setTopScorers(espnData.scorers);
         setTopAssists(espnData.assists);
+        await persistFetchedStats(espnData.scorers, espnData.assists);
         return;
       }
-      
-      // If ESPN fails, try football-data.org API
+    } catch (error) {
+      console.error('Error fetching top scorers from ESPN:', error);
+    }
+
+    try {
       const currentYear = new Date().getFullYear();
       const currentMonth = new Date().getMonth() + 1;
       const seasonStartYear = currentMonth >= 8 ? currentYear : currentYear - 1;
-      
+
       console.log(`Fetching scorers from API for ${seasonStartYear}-${seasonStartYear + 1} season`);
-      
+
       const response = await axios.get(
         `https://api.football-data.org/v4/competitions/2016/scorers`,
         {
@@ -472,42 +510,25 @@ export default function FixturesScreen(): React.ReactElement {
           }));
 
         console.log('Fetched Sunderland top scorers from API:', sunderlandScorers);
-        
+
         if (sunderlandScorers.length > 0) {
+          const assists = staleStats?.assists || [];
           setTopScorers(sunderlandScorers);
-          // API doesn't provide assists, so use empty array
-          setTopAssists([]);
+          setTopAssists(assists);
+          await persistFetchedStats(sunderlandScorers, assists);
           return;
         }
       }
-
-      console.log('No data from ESPN or API, using static fallback');
-      
     } catch (error) {
-      console.error('Error fetching top scorers:', error);
+      console.error('Error fetching top scorers from API:', error);
     }
-    
-    // Final static fallback if all else fails
-    const fallbackScorers: PlayerScorer[] = [
-      { id: 1, name: 'Brian Brobbey', goals: 5, matches: 19, goalsPerMatch: 0.26 },
-      { id: 2, name: 'Wilson Isidor', goals: 4, matches: 21, goalsPerMatch: 0.19 },
-      { id: 3, name: 'Enzo Le Fée', goals: 3, matches: 23, goalsPerMatch: 0.13 },
-      { id: 4, name: 'Chemsdine Talbi', goals: 3, matches: 18, goalsPerMatch: 0.17 },
-      { id: 5, name: 'Danny Ballard', goals: 2, matches: 20, goalsPerMatch: 0.10 },
-    ];
-    
-    const fallbackAssists: PlayerAssist[] = [
-      { id: 1, name: 'Granit Xhaka', assists: 5, matches: 22, assistsPerMatch: 0.23 },
-      { id: 2, name: 'Enzo Le Fée', assists: 4, matches: 23, assistsPerMatch: 0.17 },
-      { id: 3, name: 'Nordi Mukiele', assists: 3, matches: 22, assistsPerMatch: 0.14 },
-      { id: 4, name: 'Trai Hume', assists: 1, matches: 24, assistsPerMatch: 0.04 },
-      { id: 5, name: 'Omar Alderete', assists: 1, matches: 20, assistsPerMatch: 0.05 },
-    ];
-    
-    console.log('Using static fallback data');
-    setTopScorers(fallbackScorers);
-    setTopAssists(fallbackAssists);
-  }, [fetchTopScorersFromESPN]);
+
+    if (staleStats) {
+      console.log('Live fetch failed, keeping last fetched stats');
+    } else {
+      console.log('No live or stale stats available');
+    }
+  }, [fetchTopScorersFromESPN, loadStaleStats, persistFetchedStats]);
 
   // Calculate match statistics from fixtures data
   const calculateMatchStatistics = useCallback((sunderlandTeamId: number): MatchStatistics => {
@@ -678,26 +699,23 @@ export default function FixturesScreen(): React.ReactElement {
         return;
       }
 
-      // Calculate seconds until reminder - ensure it's properly calculated
-      const secondsUntilReminder = Math.floor((reminderTime.getTime() - now.getTime()) / 1000);
-
       console.log('Current time:', now);
       console.log('Match date:', matchDate);
       console.log('Reminder time (1h before match):', reminderTime);
-      console.log('Seconds until reminder:', secondsUntilReminder);
-      console.log('Days until reminder:', Math.floor(secondsUntilReminder / (24 * 60 * 60)));
-      console.log('Hours until reminder:', Math.floor(secondsUntilReminder / (60 * 60)));
 
-      // DISABLED: Expo Notifications has a bug causing immediate notifications
-      // TODO: Fix this in a future update when the bug is resolved
-      
-      console.log('Notification scheduling DISABLED due to immediate notification bug');
-      console.log('Would schedule for:', reminderTime);
-      console.log('Seconds until reminder:', secondsUntilReminder);
-      
-      // Generate fake notification ID to maintain UI state
-      const notificationId = `disabled_${Date.now()}_${match.id}`;
-      console.log('Using fake notification ID:', notificationId);
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Match starting soon ⚽',
+          body: `${match.homeTeam.name} vs ${match.awayTeam.name} kicks off in 1 hour`,
+          data: { type: 'match_reminder', matchId: match.id },
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: reminderTime,
+        },
+      });
+      console.log('Scheduled match reminder:', notificationId, reminderTime);
 
       // Save reminder
       const newReminders = { ...matchReminders, [match.id]: notificationId };
@@ -741,7 +759,9 @@ export default function FixturesScreen(): React.ReactElement {
     try {
       const notificationId = matchReminders[matchId];
       if (notificationId) {
-        await Notifications.cancelScheduledNotificationAsync(notificationId);
+        if (!notificationId.startsWith('disabled_')) {
+          await Notifications.cancelScheduledNotificationAsync(notificationId);
+        }
         
         const newReminders = { ...matchReminders };
         delete newReminders[matchId];

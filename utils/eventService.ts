@@ -2,6 +2,7 @@ import {
   collection,
   addDoc,
   getDocs,
+  getDoc,
   doc,
   updateDoc,
   deleteDoc,
@@ -16,6 +17,7 @@ import {
 import { db } from '../config/firebase'
 import { Event, EventComment, EventAttendee } from '../types/event'
 import { notifyAllUsers } from '../utils/simpleNotificationService'
+import { sendNotificationToUser } from '../utils/pushNotificationService'
 
 const EVENTS_COLLECTION = 'events'
 
@@ -114,12 +116,31 @@ export const subscribeToEvents = (callback: (events: Event[]) => void) => {
 }
 
 // Toggle like on an event
-export const toggleEventLike = async (eventId: string, userId: string, isLiked: boolean): Promise<void> => {
+export const toggleEventLike = async (
+  eventId: string,
+  userId: string,
+  isLiked: boolean,
+  likerName?: string
+): Promise<void> => {
   try {
     const eventRef = doc(db, EVENTS_COLLECTION, eventId)
     await updateDoc(eventRef, {
       likes: isLiked ? arrayRemove(userId) : arrayUnion(userId),
     })
+
+    if (!isLiked) {
+      const eventSnap = await getDoc(eventRef)
+      const eventData = eventSnap.data()
+      const creatorId = eventData?.createdBy?.userId
+      if (creatorId && creatorId !== userId) {
+        await sendNotificationToUser(
+          creatorId,
+          'New like ❤️',
+          `${likerName || 'Someone'} liked ${eventData?.title || 'your event'}`,
+          { eventId, type: 'like' }
+        )
+      }
+    }
   } catch (error) {
     console.error('Error toggling like:', error)
     throw error
@@ -155,6 +176,18 @@ export const addEventComment = async (
     await updateDoc(eventRef, {
       comments: arrayUnion(newComment),
     })
+
+    const eventSnap = await getDoc(eventRef)
+    const eventData = eventSnap.data()
+    const creatorId = eventData?.createdBy?.userId
+    if (creatorId && creatorId !== comment.userId) {
+      await sendNotificationToUser(
+        creatorId,
+        'New comment 💬',
+        `${comment.userName} commented on ${eventData?.title || 'your event'}`,
+        { eventId, type: 'comment' }
+      )
+    }
     
     console.log('Comment added successfully to Firestore')
   } catch (error) {

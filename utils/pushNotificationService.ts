@@ -1,7 +1,6 @@
-import { collection, getDocs, query } from 'firebase/firestore'
+import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '../config/firebase'
 
-// Expo Push API endpoint
 const EXPO_PUSH_API_URL = 'https://exp.host/--/api/v2/push/send'
 
 export interface PushNotificationData {
@@ -20,36 +19,25 @@ export interface PushMessage {
   channelId?: string
 }
 
-// Get all user notification tokens from Firestore
-async function getAllNotificationTokens(): Promise<string[]> {
+async function getAllNotificationTokens(excludeUserId?: string): Promise<string[]> {
   try {
+    const tokensSnapshot = await getDocs(collection(db, 'deviceTokens'))
     const tokens: string[] = []
-    
-    // Get all users
-    const usersQuery = query(collection(db, 'users'))
-    const usersSnapshot = await getDocs(usersQuery)
-    
-    // For each user, get their notification tokens
-    for (const userDoc of usersSnapshot.docs) {
-      const tokensQuery = query(collection(db, 'users', userDoc.id, 'tokens'))
-      const tokensSnapshot = await getDocs(tokensQuery)
-      
-      tokensSnapshot.docs.forEach(tokenDoc => {
-        const tokenData = tokenDoc.data()
-        if (tokenData.token) {
-          tokens.push(tokenData.token)
-        }
-      })
-    }
-    
-    return tokens
+
+    tokensSnapshot.docs.forEach(tokenDoc => {
+      const tokenData = tokenDoc.data()
+      if (!tokenData.token) return
+      if (excludeUserId && tokenData.userId === excludeUserId) return
+      tokens.push(tokenData.token)
+    })
+
+    return [...new Set(tokens)]
   } catch (error) {
     console.error('Error getting notification tokens:', error)
     return []
   }
 }
 
-// Send push notification to specific tokens
 export async function sendPushNotification(
   tokens: string[],
   title: string,
@@ -74,7 +62,7 @@ export async function sendPushNotification(
     const response = await fetch(EXPO_PUSH_API_URL, {
       method: 'POST',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Accept-encoding': 'gzip, deflate',
         'Content-Type': 'application/json',
       },
@@ -82,7 +70,7 @@ export async function sendPushNotification(
     })
 
     const result = await response.json()
-    
+
     if (response.ok) {
       console.log('Push notifications sent successfully:', result)
     } else {
@@ -93,16 +81,16 @@ export async function sendPushNotification(
   }
 }
 
-// Send notification to all users
 export async function sendNotificationToAllUsers(
   title: string,
   body: string,
-  data?: PushNotificationData
+  data?: PushNotificationData,
+  excludeUserId?: string
 ): Promise<void> {
   try {
-    const tokens = await getAllNotificationTokens()
+    const tokens = await getAllNotificationTokens(excludeUserId)
     console.log(`Sending notification to ${tokens.length} devices`)
-    
+
     if (tokens.length > 0) {
       await sendPushNotification(tokens, title, body, data)
     } else {
@@ -113,7 +101,6 @@ export async function sendNotificationToAllUsers(
   }
 }
 
-// Send notification to specific user
 export async function sendNotificationToUser(
   userId: string,
   title: string,
@@ -121,10 +108,9 @@ export async function sendNotificationToUser(
   data?: PushNotificationData
 ): Promise<void> {
   try {
-    // Get user's notification tokens
-    const tokensQuery = query(collection(db, 'users', userId, 'tokens'))
+    const tokensQuery = query(collection(db, 'deviceTokens'), where('userId', '==', userId))
     const tokensSnapshot = await getDocs(tokensQuery)
-    
+
     const tokens: string[] = []
     tokensSnapshot.docs.forEach(tokenDoc => {
       const tokenData = tokenDoc.data()
@@ -132,7 +118,7 @@ export async function sendNotificationToUser(
         tokens.push(tokenData.token)
       }
     })
-    
+
     if (tokens.length > 0) {
       await sendPushNotification(tokens, title, body, data)
     } else {

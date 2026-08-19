@@ -148,7 +148,7 @@ export default function App() {
       if (!event) return
 
       const isLiked = event.likes.includes(user.uid)
-      await toggleEventLike(eventId, user.uid, isLiked)
+      await toggleEventLike(eventId, user.uid, isLiked, currentUser.userName)
     } catch (error) {
       console.error('Error toggling like:', error)
       Alert.alert('Error', 'Failed to update like. Please try again.')
