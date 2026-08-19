@@ -1,11 +1,30 @@
 import React, { useEffect, useRef } from 'react';
-import { Alert } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 
 const NotificationHandler = () => {
   const notificationListener = useRef<Notifications.EventSubscription | any>();
   const responseListener = useRef<Notifications.EventSubscription | any>();
+
+  // Route the app based on a notification that the user tapped
+  const routeFromNotification = (response: Notifications.NotificationResponse | null) => {
+    if (!response) return;
+
+    const data: any = response.notification.request.content.data || {};
+    console.log('Routing from notification:', data);
+
+    // Event-related notifications open the event (events feed is the index tab)
+    if (data.eventId) {
+      router.push(`/(tabs)?eventId=${encodeURIComponent(data.eventId)}`)
+      return;
+    }
+
+    // Payment confirmation opens the profile page to show membership status
+    if (data?.type === 'payment_confirmed') {
+      router.push('/profile');
+    }
+  };
 
   useEffect(() => {
     const requestPermissions = async () => {
@@ -36,15 +55,19 @@ const NotificationHandler = () => {
     // Handle notification tap/interaction
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       console.log('Notification response:', response);
-      
-      const data = response.notification.request.content.data;
-      
-      // Navigate based on notification type
-      if (data?.type === 'payment_confirmed') {
-        // Navigate to profile page to see membership status
-        router.push('/profile');
-      }
+      routeFromNotification(response);
     });
+
+    // Cold start: app was launched by tapping a notification
+    // Only navigate if the app is being opened from scratch (not already active)
+    const appState = AppState.currentState;
+    if (appState !== 'active') {
+      Notifications.getLastNotificationResponseAsync().then(lastResponse => {
+        if (lastResponse) {
+          routeFromNotification(lastResponse);
+        }
+      });
+    }
 
     return () => {
       Notifications.removeNotificationSubscription(notificationListener.current);

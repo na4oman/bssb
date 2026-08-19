@@ -17,6 +17,7 @@ import Modal from 'react-native-modal'
 import { format } from 'date-fns'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLocalSearchParams, router } from 'expo-router'
 import { getCurrentUser } from '../../utils/userUtils'
 
 import MainScreen from '../../components/MainScreen'
@@ -57,9 +58,29 @@ export default function App() {
   const [events, setEvents] = useState<Event[]>([])
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+  const [hasOpenedEventId, setHasOpenedEventId] = useState<string | null>(null)
   const [commentText, setCommentText] = useState('')
   const [commentImage, setCommentImage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // Read eventId passed in the URL (e.g. from a tapped push notification)
+  const params = useLocalSearchParams<{ eventId?: string }>()
+  const deepLinkEventId = typeof params.eventId === 'string' ? params.eventId : undefined
+
+  // Open the event whose id came in via a deep link (push notification tap)
+  useEffect(() => {
+    if (!deepLinkEventId || deepLinkEventId === hasOpenedEventId) return
+    // Wait for the events feed to load before looking the event up
+    if (events.length === 0) return
+
+    const target = events.find(e => e.id === deepLinkEventId)
+    if (target) {
+      setSelectedEvent(target)
+      setHasOpenedEventId(deepLinkEventId)
+      // Remove the param so it doesn't reopen every time this screen re-renders
+      router.setParams({ eventId: undefined })
+    }
+  }, [deepLinkEventId, events, hasOpenedEventId])
 
   // Subscribe to events from Firebase
   useEffect(() => {

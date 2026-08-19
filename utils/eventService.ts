@@ -221,6 +221,29 @@ export const updateEventAttendance = async (
       await updateDoc(eventRef, {
         attendees: arrayUnion(attendee),
       })
+
+      // Notify the event creator that someone responded (going / maybe / not going)
+      try {
+        const creatorId = currentEvent.createdBy?.userId
+        if (creatorId && creatorId !== attendee.userId) {
+          const statusText =
+            attendee.status === 'not going'
+              ? 'is not going'
+              : attendee.status === 'maybe'
+                ? 'is a maybe'
+                : 'is going'
+          await sendNotificationToUser(
+            creatorId,
+            'New RSVP 📋',
+            `${attendee.userName} ${statusText} to ${currentEvent.title || 'your event'}`,
+            { eventId, type: 'attendance' }
+          )
+          console.log('Attendance notification sent')
+        }
+      } catch (notificationError) {
+        console.error('Error sending attendance notification:', notificationError)
+        // Don't fail the attendance update if the notification fails
+      }
     }
   } catch (error) {
     console.error('Error updating attendance:', error)
