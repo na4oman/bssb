@@ -18,6 +18,8 @@ export function tokenDocId(token: string): string {
 }
 
 export async function setupNotifications(userId?: string): Promise<boolean> {
+  if (Platform.OS === 'web') return false
+
   let hasPermission = false
 
   if (Platform.OS === 'android') {
@@ -26,7 +28,8 @@ export async function setupNotifications(userId?: string): Promise<boolean> {
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#e21d38',
-      description: 'Notifications for new events, comments, likes and match reminders',
+      description:
+        'Notifications for new events, comments, likes and match reminders',
     })
   }
 
@@ -50,7 +53,7 @@ export async function setupNotifications(userId?: string): Promise<boolean> {
     try {
       const projectId = Constants.expoConfig?.extra?.eas?.projectId
       const expoPushToken = await Notifications.getExpoPushTokenAsync(
-        projectId ? { projectId } : undefined
+        projectId ? { projectId } : undefined,
       )
       const token = expoPushToken.data
       console.log('Expo Push Token:', token)
@@ -61,10 +64,16 @@ export async function setupNotifications(userId?: string): Promise<boolean> {
         platform: Platform.OS,
         createdAt: new Date(),
       })
-      await setDoc(doc(db, 'users', userId), { pushToken: token }, { merge: true })
+      await setDoc(
+        doc(db, 'users', userId),
+        { pushToken: token },
+        { merge: true },
+      )
       console.log('Push token stored for user:', userId)
     } catch (error) {
-      console.warn('Push token not registered. Local notifications still work. Rebuild the Android app after adding FCM credentials if this persists.')
+      console.warn(
+        'Push token not registered. Local notifications still work. Rebuild the Android app after adding FCM credentials if this persists.',
+      )
       if (!Device.isDevice) {
         console.log('Push tokens require a physical device')
       }
@@ -75,17 +84,22 @@ export async function setupNotifications(userId?: string): Promise<boolean> {
 }
 
 export function setupNotificationListeners() {
-  const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-    console.log('Notification received:', notification)
-  })
+  if (Platform.OS === 'web') return () => undefined
 
-  const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-    console.log('Notification response:', response)
-    const data = response.notification.request.content.data
-    if (data?.eventId) {
-      console.log('Navigate to event:', data.eventId)
-    }
-  })
+  const notificationListener = Notifications.addNotificationReceivedListener(
+    notification => {
+      console.log('Notification received:', notification)
+    },
+  )
+
+  const responseListener =
+    Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('Notification response:', response)
+      const data = response.notification.request.content.data
+      if (data?.eventId) {
+        console.log('Navigate to event:', data.eventId)
+      }
+    })
 
   return () => {
     Notifications.removeNotificationSubscription(notificationListener)
@@ -93,7 +107,13 @@ export function setupNotificationListeners() {
   }
 }
 
-export async function sendLocalNotification(title: string, body: string, data?: any) {
+export async function sendLocalNotification(
+  title: string,
+  body: string,
+  data?: any,
+) {
+  if (Platform.OS === 'web') return
+
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -111,7 +131,10 @@ export async function sendLocalNotification(title: string, body: string, data?: 
 }
 
 export async function notifyAllUsers(title: string, body: string, data?: any) {
-  const { sendNotificationToAllUsers } = await import('./pushNotificationService')
+  if (Platform.OS === 'web') return
+
+  const { sendNotificationToAllUsers } =
+    await import('./pushNotificationService')
   const { auth } = await import('../config/firebase')
   await sendNotificationToAllUsers(title, body, data, auth.currentUser?.uid)
 }

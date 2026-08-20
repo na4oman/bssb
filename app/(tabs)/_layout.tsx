@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import HamburgerMenu from '../../components/HamburgerMenu';
+import NotificationBadge from '../../components/NotificationBadge';
 
 // Import the logo using the correct path
 const LogoImage = require('../../assets/images/logo.jpg');
@@ -28,6 +29,7 @@ const CustomHeader = () => {
       <Text style={styles.headerTitle}>
         Bulgarian Sunderland{'\n'}Supporters Branch
       </Text>
+      <NotificationBadge />
       <HamburgerMenu />
     </View>
   );

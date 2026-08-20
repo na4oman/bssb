@@ -147,11 +147,11 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
   try {
     const q = query(
       collection(db, NOTIFICATIONS_COLLECTION),
-      where('userId', '==', userId),
-      where('read', '==', false)
+      where('userId', '==', userId)
     )
     const snapshot = await getDocs(q)
-    await Promise.all(snapshot.docs.map(d => updateDoc(d.ref, { read: true })))
+    const unreadDocs = snapshot.docs.filter(d => d.data().read !== true)
+    await Promise.all(unreadDocs.map(d => updateDoc(d.ref, { read: true })))
   } catch (error) {
     console.error('Error marking all notifications as read:', error)
   }

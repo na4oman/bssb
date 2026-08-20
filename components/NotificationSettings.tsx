@@ -6,6 +6,7 @@ import {
   Switch,
   TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import * as Notifications from 'expo-notifications'
@@ -18,6 +19,8 @@ export default function NotificationSettings() {
   const [likesEnabled, setLikesEnabled] = useState(false)
 
   useEffect(() => {
+    if (Platform.OS === 'web') return
+
     checkNotificationPermissions()
   }, [])
 
@@ -33,11 +36,17 @@ export default function NotificationSettings() {
         setNotificationsEnabled(true)
         Alert.alert('Success', 'Notifications enabled successfully!')
       } else {
-        Alert.alert('Permission Denied', 'Please enable notifications in your device settings.')
+        Alert.alert(
+          'Permission Denied',
+          'Please enable notifications in your device settings.',
+        )
       }
     } else {
       setNotificationsEnabled(false)
-      Alert.alert('Notifications Disabled', 'You can re-enable them anytime in settings.')
+      Alert.alert(
+        'Notifications Disabled',
+        'You can re-enable them anytime in settings.',
+      )
     }
   }
 
@@ -51,7 +60,7 @@ export default function NotificationSettings() {
       await sendLocalNotification(
         'Test Notification 🔔',
         'This is a test notification from BSSB app!',
-        { type: 'test' }
+        { type: 'test' },
       )
       Alert.alert('Success', 'Test notification sent!')
     } catch (error) {
@@ -59,14 +68,16 @@ export default function NotificationSettings() {
     }
   }
 
+  if (Platform.OS === 'web') return null
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Notification Settings</Text>
-      
+
       {/* Main notifications toggle */}
       <View style={styles.settingItem}>
         <View style={styles.settingInfo}>
-          <Ionicons name="notifications" size={24} color="#e21d38" />
+          <Ionicons name='notifications' size={24} color='#e21d38' />
           <View style={styles.settingText}>
             <Text style={styles.settingTitle}>Push Notifications</Text>
             <Text style={styles.settingDescription}>
@@ -86,10 +97,10 @@ export default function NotificationSettings() {
       {notificationsEnabled && (
         <>
           <View style={styles.separator} />
-          
+
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Ionicons name="calendar" size={24} color="#666" />
+              <Ionicons name='calendar' size={24} color='#666' />
               <View style={styles.settingText}>
                 <Text style={styles.settingTitle}>New Events</Text>
                 <Text style={styles.settingDescription}>
@@ -107,7 +118,7 @@ export default function NotificationSettings() {
 
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Ionicons name="chatbubble" size={24} color="#666" />
+              <Ionicons name='chatbubble' size={24} color='#666' />
               <View style={styles.settingText}>
                 <Text style={styles.settingTitle}>Comments</Text>
                 <Text style={styles.settingDescription}>
@@ -125,7 +136,7 @@ export default function NotificationSettings() {
 
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Ionicons name="heart" size={24} color="#666" />
+              <Ionicons name='heart' size={24} color='#666' />
               <View style={styles.settingText}>
                 <Text style={styles.settingTitle}>Likes</Text>
                 <Text style={styles.settingDescription}>
@@ -144,8 +155,11 @@ export default function NotificationSettings() {
           <View style={styles.separator} />
 
           {/* Test notification button */}
-          <TouchableOpacity style={styles.testButton} onPress={testNotification}>
-            <Ionicons name="send" size={20} color="#fff" />
+          <TouchableOpacity
+            style={styles.testButton}
+            onPress={testNotification}
+          >
+            <Ionicons name='send' size={20} color='#fff' />
             <Text style={styles.testButtonText}>Send Test Notification</Text>
           </TouchableOpacity>
         </>

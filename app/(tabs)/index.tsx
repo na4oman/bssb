@@ -11,6 +11,7 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import Modal from 'react-native-modal'
@@ -41,13 +42,15 @@ const DEFAULT_EVENT_IMAGE =
 const BACKGROUND_IMAGE = require('../../assets/images/index-background.jpg')
 
 // Configure notifications
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-})
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  })
+}
 
 // --- App Component ---
 export default function App() {
@@ -65,7 +68,8 @@ export default function App() {
 
   // Read eventId passed in the URL (e.g. from a tapped push notification)
   const params = useLocalSearchParams<{ eventId?: string }>()
-  const deepLinkEventId = typeof params.eventId === 'string' ? params.eventId : undefined
+  const deepLinkEventId =
+    typeof params.eventId === 'string' ? params.eventId : undefined
 
   // Open the event whose id came in via a deep link (push notification tap)
   useEffect(() => {
@@ -85,7 +89,7 @@ export default function App() {
   // Subscribe to events from Firebase
   useEffect(() => {
     if (user) {
-      const unsubscribe = subscribeToEvents((eventsData) => {
+      const unsubscribe = subscribeToEvents(eventsData => {
         setEvents(eventsData)
         setLoading(false)
       })
@@ -101,7 +105,7 @@ export default function App() {
     eventData: Omit<
       Event,
       'id' | 'likes' | 'comments' | 'attendees' | 'createdBy'
-    >
+    >,
   ) => {
     if (!user) {
       Alert.alert('Error', 'You must be logged in to create events.')
@@ -124,19 +128,15 @@ export default function App() {
       setModalVisible(false)
 
       // Show success message
-      Alert.alert(
-        'Success! 🎉',
-        'Event created successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Optional: You could navigate to events tab here if needed
-              console.log('Event creation completed')
-            }
-          }
-        ]
-      )
+      Alert.alert('Success! 🎉', 'Event created successfully!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Optional: You could navigate to events tab here if needed
+            console.log('Event creation completed')
+          },
+        },
+      ])
 
       // Send push notifications (optional - implement if needed)
       // try {
@@ -184,7 +184,7 @@ export default function App() {
       if (!permissionResult.granted) {
         Alert.alert(
           'Permission Denied',
-          'Sorry, we need camera roll permissions to attach images!'
+          'Sorry, we need camera roll permissions to attach images!',
         )
         return
       }
@@ -209,9 +209,11 @@ export default function App() {
     console.log('commentText:', commentText)
     console.log('commentImage:', commentImage)
     console.log('user:', user)
-    
+
     if ((!commentText.trim() && !commentImage) || !user) {
-      console.log('Validation failed - missing text/image or user not logged in')
+      console.log(
+        'Validation failed - missing text/image or user not logged in',
+      )
       return
     }
 
@@ -225,15 +227,21 @@ export default function App() {
           uploadedImageUrl = await uploadImage(commentImage, 'bssb-comments')
           console.log('Image uploaded successfully:', uploadedImageUrl)
         } catch (imageError) {
-          console.error('Image upload failed, posting comment without image:', imageError)
+          console.error(
+            'Image upload failed, posting comment without image:',
+            imageError,
+          )
           // Continue without image if upload fails
           uploadedImageUrl = undefined
         }
       }
 
       console.log('Adding comment to event:', eventId)
-      console.log('User info:', { uid: user.uid, userName: currentUser.userName })
-      
+      console.log('User info:', {
+        uid: user.uid,
+        userName: currentUser.userName,
+      })
+
       await addEventComment(eventId, {
         userId: user.uid,
         userName: currentUser.userName,
@@ -246,13 +254,14 @@ export default function App() {
       setCommentImage(null)
     } catch (error) {
       console.error('Error adding comment:', error)
-      Alert.alert('Error', `Failed to add comment: ${error.message || error}`)
+      const message = error instanceof Error ? error.message : String(error)
+      Alert.alert('Error', `Failed to add comment: ${message}`)
     }
   }
 
   const updateAttendanceStatus = async (
     eventId: string,
-    status: 'going' | 'maybe' | 'not going'
+    status: 'going' | 'maybe' | 'not going',
   ) => {
     if (!user) return
 
@@ -326,7 +335,7 @@ export default function App() {
                 style={[
                   styles.attendanceButton,
                   currentEvent.attendees.some(
-                    a => a.userId === user?.uid && a.status === 'going'
+                    a => a.userId === user?.uid && a.status === 'going',
                   ) && styles.attendanceButtonActive,
                 ]}
                 onPress={() => updateAttendanceStatus(currentEvent.id, 'going')}
@@ -335,7 +344,7 @@ export default function App() {
                   style={[
                     styles.attendanceButtonText,
                     currentEvent.attendees.some(
-                      a => a.userId === user?.uid && a.status === 'going'
+                      a => a.userId === user?.uid && a.status === 'going',
                     ) && { color: '#fff' },
                   ]}
                 >
@@ -346,7 +355,7 @@ export default function App() {
                 style={[
                   styles.attendanceButton,
                   currentEvent.attendees.some(
-                    a => a.userId === user?.uid && a.status === 'maybe'
+                    a => a.userId === user?.uid && a.status === 'maybe',
                   ) && styles.attendanceButtonActive,
                 ]}
                 onPress={() => updateAttendanceStatus(currentEvent.id, 'maybe')}
@@ -355,7 +364,7 @@ export default function App() {
                   style={[
                     styles.attendanceButtonText,
                     currentEvent.attendees.some(
-                      a => a.userId === user?.uid && a.status === 'maybe'
+                      a => a.userId === user?.uid && a.status === 'maybe',
                     ) && { color: '#fff' },
                   ]}
                 >
@@ -366,7 +375,7 @@ export default function App() {
                 style={[
                   styles.attendanceButton,
                   currentEvent.attendees.some(
-                    a => a.userId === user?.uid && a.status === 'not going'
+                    a => a.userId === user?.uid && a.status === 'not going',
                   ) && styles.attendanceButtonActive,
                 ]}
                 onPress={() =>
@@ -377,7 +386,7 @@ export default function App() {
                   style={[
                     styles.attendanceButtonText,
                     currentEvent.attendees.some(
-                      a => a.userId === user?.uid && a.status === 'not going'
+                      a => a.userId === user?.uid && a.status === 'not going',
                     ) && { color: '#fff' },
                   ]}
                 >
@@ -413,7 +422,7 @@ export default function App() {
               <Text style={styles.attendeesTitle}>Attendees</Text>
               {['going', 'maybe', 'not going'].map(status => {
                 const statusAttendees = currentEvent.attendees.filter(
-                  a => a.status === status
+                  a => a.status === status,
                 )
                 return statusAttendees.length > 0 ? (
                   <View key={status}>
@@ -526,7 +535,11 @@ export default function App() {
             ListEmptyComponent={
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateText}>
-                  {loading ? 'Loading events...' : user ? 'No events yet' : 'Please log in to see events'}
+                  {loading
+                    ? 'Loading events...'
+                    : user
+                      ? 'No events yet'
+                      : 'Please log in to see events'}
                 </Text>
               </View>
             }

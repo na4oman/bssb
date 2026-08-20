@@ -19,7 +19,9 @@ export interface PushMessage {
   channelId?: string
 }
 
-async function getAllNotificationTokens(excludeUserId?: string): Promise<string[]> {
+async function getAllNotificationTokens(
+  excludeUserId?: string,
+): Promise<string[]> {
   try {
     const tokensSnapshot = await getDocs(collection(db, 'deviceTokens'))
     const tokens: string[] = []
@@ -42,7 +44,7 @@ export async function sendPushNotification(
   tokens: string[],
   title: string,
   body: string,
-  data?: PushNotificationData
+  data?: PushNotificationData,
 ): Promise<void> {
   if (tokens.length === 0) {
     console.log('No tokens to send notifications to')
@@ -85,7 +87,7 @@ export async function sendNotificationToAllUsers(
   title: string,
   body: string,
   data?: PushNotificationData,
-  excludeUserId?: string
+  excludeUserId?: string,
 ): Promise<void> {
   try {
     const tokens = await getAllNotificationTokens(excludeUserId)
@@ -105,19 +107,17 @@ export async function sendNotificationToUser(
   userId: string,
   title: string,
   body: string,
-  data?: PushNotificationData
+  data?: PushNotificationData,
 ): Promise<void> {
   try {
-    const tokensQuery = query(collection(db, 'deviceTokens'), where('userId', '==', userId))
+    const tokensQuery = query(
+      collection(db, 'deviceTokens'),
+      where('userId', '==', userId),
+    )
     const tokensSnapshot = await getDocs(tokensQuery)
-
-    const tokens: string[] = []
-    tokensSnapshot.docs.forEach(tokenDoc => {
-      const tokenData = tokenDoc.data()
-      if (tokenData.token) {
-        tokens.push(tokenData.token)
-      }
-    })
+    const tokens = tokensSnapshot.docs
+      .map(tokenDoc => tokenDoc.data().token as string | undefined)
+      .filter((token): token is string => Boolean(token))
 
     if (tokens.length > 0) {
       await sendPushNotification(tokens, title, body, data)
