@@ -69,6 +69,59 @@
 - [x] Firebase admin is not bundled for web — `firebaseAdmin.ts` (imported `firebase-admin` + a private key) removed; verified the web bundle has no `firebase-admin` reference.
 - [x] Run `<!-- npx expo start --web -->` and smoke-test: login → events → RSVP → comment → badge updates → tap notification → opens event. (Manual browser smoke test to be done)
 
+## Phase 3.5 — Web UI layout & navigation overhaul
+
+> **Problem:** The web build currently stretches the native mobile layout to full desktop width. Bottom tab bar sits at the foot of a 1280px+ viewport, and every card (events, posts, news) is a giant image-on-top stack running edge-to-edge. The user has reviewed screenshots and confirmed the result is unusable on desktop.
+
+### Goal
+
+| Concern | Mobile (native) | Web (desktop) |
+|---|---|---|
+| Tab navigation | Bottom tab bar (unchanged) | Top tab bar in the header/nav area |
+| Content width | Full-width (device width) | Constrained to a max-width container, centered |
+| Event/Post/News card | Image on top, text below (vertical) | Image on left, text on right (horizontal) |
+| Body | Default | `max-width: 1280px` centered, no edge-to-edge stretching |
+
+### Tasks
+
+- [ ] **Body max-width (global CSS)**
+  - [ ] Create `styles/global.css` with `body { max-width: 1280px; margin: 0 auto; background: #f5f5f5; }` (plus a `@media` guard so very narrow windows still work).
+  - [ ] Import it in `app/_layout.tsx` (the Expo Router root layout): `import '../styles/global.css'` — web-only import (no-op on native).
+  - [ ] Verify: open on desktop browser; the red header, tab bar, and content no longer bleed to the viewport edges.
+
+- [ ] **Top tab bar on web, bottom on mobile** (`app/(tabs)/_layout.tsx`)
+  - [ ] Compute `const isWeb = Platform.OS === 'web'` at the top of `TabsLayout`.
+  - [ ] Pass `tabBarPosition: isWeb ? 'top' : 'bottom'` to `<Tabs>` so the tab bar moves to the top on web but stays at the bottom on native.
+  - [ ] Web-specific `tabBarStyle`: full-width top strip, height ~56, label + icon inline (icon-left, label-right), `backgroundColor: '#e21d38'`, active/inactive tint unchanged. Add `web` key to `tabBarLabelStyle` for proper font rendering.
+  - [ ] Mobile `tabBarStyle` keeps existing `height: 60` bottom bar config (unchanged).
+  - [ ] Verify mobile still has the bottom red tab bar with icons-below-labels (`tabBarLabelPosition: 'below-icon'`); web now has a top strip with icons.
+
+- [ ] **Web card layout: image-left / text-right** (`components/EventCard.tsx`)
+  - [ ] Wrap the existing JSX in a `Platform.select` branch (or conditional `style`/`flexDirection`).
+  - [ ] **Web**: `flexDirection: 'row'` — image on the left (fixed `width: 200`, `height: 140`, `borderRadius: 12`), text content in a flex:1 container to the right.
+  - [ ] **Mobile**: keep the current vertical layout (`flexDirection: 'column'`, image `width: '100%'` `height: 180`, content below) — no behavioural change.
+  - [ ] Apply the same horizontal/vertical split to `components/PostDetailsModal.tsx` card and the News flat-list card in `app/(tabs)/news.tsx` so all card-based lists are visually consistent on web.
+  - [ ] Add a shared helper: `utils/platformStyles.ts` exporting `isWeb()` and reusable web/mobile style objects (`WEB_CARD_CONTAINER`, `WEB_CARD_IMAGE`, `MOBILE_CARD_IMAGE`, etc.) to avoid scattering `Platform.OS` checks across components.
+  - [ ] Verify: on desktop the events feed shows compact horizontal cards; on a phone it's still the stacked mobile layout.
+
+- [ ] **Constrain FlatList content width on web** (`app/(tabs)/index.tsx`, `app/(tabs)/posts.tsx`, `app/(tabs)/news.tsx`)
+  - [ ] Add `contentContainerStyle` with `maxWidth: isWeb ? 1280 : '100%'` and `marginHorizontal: isWeb ? 'auto' : 0` to each screen's `<FlatList>`.
+  - [ ] Adjust the `overlay` style (the `rgba(0,0,0,0.5)` View) so it doesn't fight the body-level max-width on web.
+  - [ ] Ensure the FAB (`MainScreen`) is positioned relative to the max-width container, not the viewport edge, on web.
+
+- [ ] **Web max-width wrapper in root layout** (`app/_layout.tsx`)
+  - [ ] For `Platform.OS === 'web'`, wrap the `<AuthProvider>` / `<SafeAreaProvider>` children in a `<View style={styles.webMaxWidthWrapper}>` with `maxWidth: 1280, marginHorizontal: 'auto'`.
+  - [ ] This catches screens that don't use a FlatList (profile, table, etc.).
+  - [ ] For native, render children directly (no wrapper) — unchanged.
+
+- [ ] **Smoke-test on web**
+  - [ ] `npx expo start --web` → verify all tabs (Events, Posts, News, Table, Fixtures) render without edge-to-edge overflow.
+  - [ ] Verify tab switching works with the top bar.
+  - [ ] Verify EventCard horizontal layout, tap-to-open event modal still works.
+  - [ ] Resize browser narrow → confirm it degrades gracefully to mobile-like behavior.
+
+> 🚧 **Why before Phase 4?** The static export in Phase 4 (`expo export --platform web`) will package whatever the canvas looks like. Doing the layout fix first ensures the build is correct from the start.
+
 ## Phase 4 — Web build & hosting
 
 - [ ] `npx expo export --platform web` → static output in `dist/`.
