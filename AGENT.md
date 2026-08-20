@@ -51,7 +51,7 @@
 - `app/(auth)/login`, `signup` — Firebase email/password auth.
 - `app/(tabs)/` — main tabs: **index (Events)**, **posts**, **news**, **table**, **fixtures**, and hidden **profile**. Custom red header via `_layout.tsx`.
 - `app/profile.tsx` and `app/users.tsx` are root-level stack screens (nav via `router.push('/profile')`, `/users`).
-- Notifications from the header: `components/NotificationBadge.tsx` currently shows an **unseen-events counter** (based on `utils/seenEventsService.ts`). This is the component to evolve into the notification-center bell.
+- Notifications from the header: `components/NotificationBadge.tsx` is the **notification-center bell** (mounted in the red header next to the hamburger menu). It subscribes to the Firestore `notifications` feed (`utils/notificationFeedService.ts`), shows an unread-count badge, and opens a bottom-sheet list of cards; tapping a card marks it read and navigates via `/(tabs)?eventId=...`.
 
 ## 4. Build & test
 

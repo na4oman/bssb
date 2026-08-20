@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   StyleSheet,
   View,
@@ -11,6 +11,8 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  Platform,
+  LayoutChangeEvent,
 } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import Modal from 'react-native-modal'
@@ -41,13 +43,15 @@ const DEFAULT_EVENT_IMAGE =
 const BACKGROUND_IMAGE = require('../../assets/images/index-background.jpg')
 
 // Configure notifications
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-})
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  })
+}
 
 // --- App Component ---
 export default function App() {
@@ -58,34 +62,48 @@ export default function App() {
   const [events, setEvents] = useState<Event[]>([])
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
-  const [hasOpenedEventId, setHasOpenedEventId] = useState<string | null>(null)
+  const [hasOpenedNotification, setHasOpenedNotification] = useState<
+    string | null
+  >(null)
+  const [pendingCommentId, setPendingCommentId] = useState<string | null>(null)
+  const eventDetailsScrollRef = useRef<ScrollView>(null)
   const [commentText, setCommentText] = useState('')
   const [commentImage, setCommentImage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Read eventId passed in the URL (e.g. from a tapped push notification)
-  const params = useLocalSearchParams<{ eventId?: string }>()
-  const deepLinkEventId = typeof params.eventId === 'string' ? params.eventId : undefined
+  const params = useLocalSearchParams<{
+    eventId?: string
+    commentId?: string
+  }>()
+  const deepLinkEventId =
+    typeof params.eventId === 'string' ? params.eventId : undefined
+  const deepLinkCommentId =
+    typeof params.commentId === 'string' ? params.commentId : undefined
 
   // Open the event whose id came in via a deep link (push notification tap)
   useEffect(() => {
-    if (!deepLinkEventId || deepLinkEventId === hasOpenedEventId) return
+    const notificationKey = deepLinkEventId
+      ? `${deepLinkEventId}:${deepLinkCommentId || ''}`
+      : null
+    if (!notificationKey || notificationKey === hasOpenedNotification) return
     // Wait for the events feed to load before looking the event up
     if (events.length === 0) return
 
     const target = events.find(e => e.id === deepLinkEventId)
     if (target) {
       setSelectedEvent(target)
-      setHasOpenedEventId(deepLinkEventId)
+      setPendingCommentId(deepLinkCommentId || null)
+      setHasOpenedNotification(notificationKey)
       // Remove the param so it doesn't reopen every time this screen re-renders
-      router.setParams({ eventId: undefined })
+      router.setParams({ eventId: undefined, commentId: undefined })
     }
-  }, [deepLinkEventId, events, hasOpenedEventId])
+  }, [deepLinkEventId, deepLinkCommentId, events, hasOpenedNotification])
 
   // Subscribe to events from Firebase
   useEffect(() => {
     if (user) {
-      const unsubscribe = subscribeToEvents((eventsData) => {
+      const unsubscribe = subscribeToEvents(eventsData => {
         setEvents(eventsData)
         setLoading(false)
       })
@@ -101,7 +119,7 @@ export default function App() {
     eventData: Omit<
       Event,
       'id' | 'likes' | 'comments' | 'attendees' | 'createdBy'
-    >
+    >,
   ) => {
     if (!user) {
       Alert.alert('Error', 'You must be logged in to create events.')
@@ -124,19 +142,15 @@ export default function App() {
       setModalVisible(false)
 
       // Show success message
-      Alert.alert(
-        'Success! 🎉',
-        'Event created successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Optional: You could navigate to events tab here if needed
-              console.log('Event creation completed')
-            }
-          }
-        ]
-      )
+      Alert.alert('Success! 🎉', 'Event created successfully!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Optional: You could navigate to events tab here if needed
+            console.log('Event creation completed')
+          },
+        },
+      ])
 
       // Send push notifications (optional - implement if needed)
       // try {
@@ -184,7 +198,7 @@ export default function App() {
       if (!permissionResult.granted) {
         Alert.alert(
           'Permission Denied',
-          'Sorry, we need camera roll permissions to attach images!'
+          'Sorry, we need camera roll permissions to attach images!',
         )
         return
       }
@@ -209,9 +223,11 @@ export default function App() {
     console.log('commentText:', commentText)
     console.log('commentImage:', commentImage)
     console.log('user:', user)
-    
+
     if ((!commentText.trim() && !commentImage) || !user) {
-      console.log('Validation failed - missing text/image or user not logged in')
+      console.log(
+        'Validation failed - missing text/image or user not logged in',
+      )
       return
     }
 
@@ -225,15 +241,21 @@ export default function App() {
           uploadedImageUrl = await uploadImage(commentImage, 'bssb-comments')
           console.log('Image uploaded successfully:', uploadedImageUrl)
         } catch (imageError) {
-          console.error('Image upload failed, posting comment without image:', imageError)
+          console.error(
+            'Image upload failed, posting comment without image:',
+            imageError,
+          )
           // Continue without image if upload fails
           uploadedImageUrl = undefined
         }
       }
 
       console.log('Adding comment to event:', eventId)
-      console.log('User info:', { uid: user.uid, userName: currentUser.userName })
-      
+      console.log('User info:', {
+        uid: user.uid,
+        userName: currentUser.userName,
+      })
+
       await addEventComment(eventId, {
         userId: user.uid,
         userName: currentUser.userName,
@@ -246,13 +268,14 @@ export default function App() {
       setCommentImage(null)
     } catch (error) {
       console.error('Error adding comment:', error)
-      Alert.alert('Error', `Failed to add comment: ${error.message || error}`)
+      const message = error instanceof Error ? error.message : String(error)
+      Alert.alert('Error', `Failed to add comment: ${message}`)
     }
   }
 
   const updateAttendanceStatus = async (
     eventId: string,
-    status: 'going' | 'maybe' | 'not going'
+    status: 'going' | 'maybe' | 'not going',
   ) => {
     if (!user) return
 
@@ -289,7 +312,10 @@ export default function App() {
         animationIn='slideInUp'
         animationOut='slideOutDown'
       >
-        <ScrollView style={styles.eventDetailsModalContent}>
+        <ScrollView
+          ref={eventDetailsScrollRef}
+          style={styles.eventDetailsModalContent}
+        >
           {/* Event Header */}
           <View style={styles.eventDetailsHeader}>
             <TouchableOpacity
@@ -326,7 +352,7 @@ export default function App() {
                 style={[
                   styles.attendanceButton,
                   currentEvent.attendees.some(
-                    a => a.userId === user?.uid && a.status === 'going'
+                    a => a.userId === user?.uid && a.status === 'going',
                   ) && styles.attendanceButtonActive,
                 ]}
                 onPress={() => updateAttendanceStatus(currentEvent.id, 'going')}
@@ -335,7 +361,7 @@ export default function App() {
                   style={[
                     styles.attendanceButtonText,
                     currentEvent.attendees.some(
-                      a => a.userId === user?.uid && a.status === 'going'
+                      a => a.userId === user?.uid && a.status === 'going',
                     ) && { color: '#fff' },
                   ]}
                 >
@@ -346,7 +372,7 @@ export default function App() {
                 style={[
                   styles.attendanceButton,
                   currentEvent.attendees.some(
-                    a => a.userId === user?.uid && a.status === 'maybe'
+                    a => a.userId === user?.uid && a.status === 'maybe',
                   ) && styles.attendanceButtonActive,
                 ]}
                 onPress={() => updateAttendanceStatus(currentEvent.id, 'maybe')}
@@ -355,7 +381,7 @@ export default function App() {
                   style={[
                     styles.attendanceButtonText,
                     currentEvent.attendees.some(
-                      a => a.userId === user?.uid && a.status === 'maybe'
+                      a => a.userId === user?.uid && a.status === 'maybe',
                     ) && { color: '#fff' },
                   ]}
                 >
@@ -366,7 +392,7 @@ export default function App() {
                 style={[
                   styles.attendanceButton,
                   currentEvent.attendees.some(
-                    a => a.userId === user?.uid && a.status === 'not going'
+                    a => a.userId === user?.uid && a.status === 'not going',
                   ) && styles.attendanceButtonActive,
                 ]}
                 onPress={() =>
@@ -377,7 +403,7 @@ export default function App() {
                   style={[
                     styles.attendanceButtonText,
                     currentEvent.attendees.some(
-                      a => a.userId === user?.uid && a.status === 'not going'
+                      a => a.userId === user?.uid && a.status === 'not going',
                     ) && { color: '#fff' },
                   ]}
                 >
@@ -413,7 +439,7 @@ export default function App() {
               <Text style={styles.attendeesTitle}>Attendees</Text>
               {['going', 'maybe', 'not going'].map(status => {
                 const statusAttendees = currentEvent.attendees.filter(
-                  a => a.status === status
+                  a => a.status === status,
                 )
                 return statusAttendees.length > 0 ? (
                   <View key={status}>
@@ -435,7 +461,21 @@ export default function App() {
             <View style={styles.commentsContainer}>
               <Text style={styles.commentsTitle}>Comments</Text>
               {currentEvent.comments.map(comment => (
-                <View key={comment.id} style={styles.commentItem}>
+                <View
+                  key={comment.id}
+                  style={[
+                    styles.commentItem,
+                    pendingCommentId === comment.id && styles.targetCommentItem,
+                  ]}
+                  onLayout={(layout: LayoutChangeEvent) => {
+                    if (pendingCommentId !== comment.id) return
+                    eventDetailsScrollRef.current?.scrollTo({
+                      y: Math.max(0, layout.nativeEvent.layout.y - 140),
+                      animated: true,
+                    })
+                    setPendingCommentId(null)
+                  }}
+                >
                   <Text style={styles.commentUserName}>{comment.userName}</Text>
                   {comment.text ? (
                     <Text style={styles.commentText}>{comment.text}</Text>
@@ -526,7 +566,11 @@ export default function App() {
             ListEmptyComponent={
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateText}>
-                  {loading ? 'Loading events...' : user ? 'No events yet' : 'Please log in to see events'}
+                  {loading
+                    ? 'Loading events...'
+                    : user
+                      ? 'No events yet'
+                      : 'Please log in to see events'}
                 </Text>
               </View>
             }
@@ -701,6 +745,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f8f8',
     borderRadius: 12,
     marginBottom: 10,
+  },
+  targetCommentItem: {
+    backgroundColor: '#fff1f3',
+    borderWidth: 2,
+    borderColor: '#e21d38',
   },
   commentUserName: {
     fontSize: 16,

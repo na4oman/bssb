@@ -13,6 +13,7 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
+import { Platform } from 'react-native'
 
 console.log('AuthContext: Starting to import Firebase auth...')
 
@@ -24,7 +25,10 @@ try {
 }
 
 import { auth, db } from '../config/firebase'
-import { setupNotifications, setupNotificationListeners } from '../utils/simpleNotificationService'
+import {
+  setupNotifications,
+  setupNotificationListeners,
+} from '../utils/simpleNotificationService'
 
 console.log('AuthContext: All imports completed')
 
@@ -59,16 +63,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('AuthContext: Auth state changed:', user ? `User: ${user.email}` : 'No user')
+    const unsubscribe = onAuthStateChanged(auth, async user => {
+      console.log(
+        'AuthContext: Auth state changed:',
+        user ? `User: ${user.email}` : 'No user',
+      )
       setUser(user)
-      
+
       if (user) {
         // Setup notifications when user logs in
         try {
+          if (Platform.OS === 'web') {
+            setNotificationsEnabled(false)
+            setLoading(false)
+            return
+          }
+
           const hasPermission = await setupNotifications(user.uid)
           setNotificationsEnabled(hasPermission)
-          console.log('Notifications setup:', hasPermission ? 'Success' : 'Failed')
+          console.log(
+            'Notifications setup:',
+            hasPermission ? 'Success' : 'Failed',
+          )
         } catch (error) {
           console.error('Error setting up notifications:', error)
         }
@@ -76,12 +92,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Clear notification state when user logs out
         setNotificationsEnabled(false)
       }
-      
+
       setLoading(false)
     })
 
     // Setup notification listeners
-    const removeListeners = setupNotificationListeners()
+    const removeListeners =
+      Platform.OS === 'web' ? () => undefined : setupNotificationListeners()
 
     return () => {
       unsubscribe()
@@ -92,8 +109,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signup = async (email: string, password: string) => {
     try {
       setError(null)
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-      
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      )
+
       // Create user document in Firestore
       const userName = email.split('@')[0] // Use email prefix as default username
       await setDoc(doc(db, 'users', userCredential.user.uid), {
@@ -103,7 +124,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         paid: false, // Default to unpaid
         createdAt: new Date(),
       })
-      
+
       console.log('User document created in Firestore')
     } catch (error: any) {
       setError(error.message || 'Signup failed')
@@ -125,7 +146,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       console.log('AuthContext: Starting logout...')
       setError(null)
-      
+
       await firebaseSignOut(auth)
       console.log('AuthContext: Firebase signOut completed')
     } catch (error: any) {

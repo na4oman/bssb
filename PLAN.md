@@ -2,6 +2,7 @@
 
 > Companion to AGENT.md (project context). This is the actionable checklist for the next version.
 > **Guiding principle (confirmed with the project owner):**
+>
 > - 📱 **Mobile keeps the existing push notification flow untouched.**
 > - 🌐 **Web gets a Firestore-backed in-app notification center** (badge counter + notification cards + tap-to-navigate). No web push, no VAPID, no service worker.
 > - Both share one notification feed in Firestore; web-only users see notifications while logged in.
@@ -45,15 +46,15 @@
 
 ## Phase 2 — Notification center UI (works on web AND mobile)
 
-- [ ] Evolve `components/NotificationBadge.tsx` (currently an unseen-events counter) into the notification bell:
-  - Subscribes to `subscribeToNotifications(user.uid)`.
-  - Badge shows **unread count** (sum of `read === false`).
-- [ ] New notification list UI (screen or modal — e.g. `app/notifications.tsx` or `components/NotificationsList.tsx`):
-  - Cards with `title`, `message`, relative timestamp (`date-fns`).
-  - Unread styling until opened.
-  - **Tap card → navigate to the event** via existing deep link `router.push('/(tabs)?eventId=...')` and call `markNotificationRead`.
-  - Empty state.
-- [ ] Keep header consistent (the bell lives in the custom red header via `app/(tabs)/_layout.tsx`).
+- [x] Evolve `components/NotificationBadge.tsx` (currently an unseen-events counter) into the notification bell:
+  - [x] Subscribes to `subscribeToNotifications(user.uid)`.
+  - [x] Badge shows **unread count** (sum of `read === false`).
+- [x] New notification list UI (screen or modal — implemented as a bottom-sheet `Modal` inside `NotificationBadge.tsx`):
+  - [x] Cards with `title`, `message`, relative timestamp (`date-fns`).
+  - [x] Unread styling until opened.
+  - [x] **Tap card → navigate to the event** via existing deep link `router.push('/(tabs)?eventId=...')` and call `markNotificationRead`.
+  - [x] Empty state.
+- [x] Keep header consistent (the bell lives in the custom red header via `app/(tabs)/_layout.tsx`).
 
 ## Phase 3 — Web readiness / platform gating
 

@@ -1,5 +1,11 @@
 import React from 'react'
-import { StyleSheet, TouchableOpacity, Text, View } from 'react-native'
+import {
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  Text,
+  View,
+} from 'react-native'
 import NotificationHandler from './NotificationHandler'
 
 interface MainScreenProps {
@@ -9,7 +15,7 @@ interface MainScreenProps {
 const MainScreen: React.FC<MainScreenProps> = ({ onModalPress }) => {
   return (
     <>
-      <NotificationHandler />
+      {Platform.OS !== 'web' && <NotificationHandler />}
       <View style={styles.container}>
         <TouchableOpacity style={styles.addButton} onPress={onModalPress}>
           <Text style={styles.addButtonText}>+</Text>

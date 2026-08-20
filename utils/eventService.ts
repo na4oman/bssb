@@ -18,7 +18,10 @@ import { db } from '../config/firebase'
 import { Event, EventComment, EventAttendee } from '../types/event'
 import { notifyAllUsers } from '../utils/simpleNotificationService'
 import { sendNotificationToUser } from '../utils/pushNotificationService'
-import { addNotification, addNotificationToAllUsers } from '../utils/notificationFeedService'
+import {
+  addNotification,
+  addNotificationToAllUsers,
+} from '../utils/notificationFeedService'
 
 const EVENTS_COLLECTION = 'events'
 
@@ -57,7 +60,7 @@ const convertEventData = (doc: any): Event => {
 
 // Create a new event
 export const createEvent = async (
-  eventData: Omit<Event, 'id' | 'likes' | 'comments' | 'attendees'>
+  eventData: Omit<Event, 'id' | 'likes' | 'comments' | 'attendees'>,
 ): Promise<string> => {
   try {
     const docRef = await addDoc(collection(db, EVENTS_COLLECTION), {
@@ -68,7 +71,7 @@ export const createEvent = async (
       attendees: [],
       createdAt: serverTimestamp(),
     })
-    
+
     // Send notification about the new event
     try {
       await notifyAllUsers(
@@ -77,14 +80,14 @@ export const createEvent = async (
         {
           eventId: docRef.id,
           type: 'new_event',
-        }
+        },
       )
       console.log('Event notification sent')
     } catch (notificationError) {
       console.error('Error sending event notification:', notificationError)
       // Don't throw here - event creation should succeed even if notification fails
     }
-    
+
     // Add in-app feed notification for the new event (web + mobile notification center)
     try {
       await addNotificationToAllUsers(
@@ -94,14 +97,14 @@ export const createEvent = async (
           message: `${eventData.title} - ${eventData.location}`,
           eventId: docRef.id,
         },
-        eventData.createdBy?.userId
+        eventData.createdBy?.userId,
       )
       console.log('Event feed notification added')
     } catch (feedError) {
       console.error('Error adding event feed notification:', feedError)
       // Don't throw here - event creation should succeed even if the feed write fails
     }
-    
+
     return docRef.id
   } catch (error) {
     console.error('Error creating event:', error)
@@ -112,7 +115,10 @@ export const createEvent = async (
 // Get all events
 export const getAllEvents = async (): Promise<Event[]> => {
   try {
-    const q = query(collection(db, EVENTS_COLLECTION), orderBy('createdAt', 'desc'))
+    const q = query(
+      collection(db, EVENTS_COLLECTION),
+      orderBy('createdAt', 'desc'),
+    )
     const querySnapshot = await getDocs(q)
     return querySnapshot.docs.map(convertEventData)
   } catch (error) {
@@ -123,14 +129,21 @@ export const getAllEvents = async (): Promise<Event[]> => {
 
 // Subscribe to events in real-time
 export const subscribeToEvents = (callback: (events: Event[]) => void) => {
-  const q = query(collection(db, EVENTS_COLLECTION), orderBy('createdAt', 'desc'))
-  
-  return onSnapshot(q, (querySnapshot) => {
-    const events = querySnapshot.docs.map(convertEventData)
-    callback(events)
-  }, (error) => {
-    console.error('Error subscribing to events:', error)
-  })
+  const q = query(
+    collection(db, EVENTS_COLLECTION),
+    orderBy('createdAt', 'desc'),
+  )
+
+  return onSnapshot(
+    q,
+    querySnapshot => {
+      const events = querySnapshot.docs.map(convertEventData)
+      callback(events)
+    },
+    error => {
+      console.error('Error subscribing to events:', error)
+    },
+  )
 }
 
 // Toggle like on an event
@@ -138,7 +151,7 @@ export const toggleEventLike = async (
   eventId: string,
   userId: string,
   isLiked: boolean,
-  likerName?: string
+  likerName?: string,
 ): Promise<void> => {
   try {
     const eventRef = doc(db, EVENTS_COLLECTION, eventId)
@@ -156,7 +169,7 @@ export const toggleEventLike = async (
           creatorId,
           'New like ❤️',
           `${likerName || 'Someone'} liked ${eventData?.title || 'your event'}`,
-          { eventId, type: 'like' }
+          { eventId, type: 'like' },
         )
         // In-app feed notification
         await addNotification(creatorId, {
@@ -176,29 +189,30 @@ export const toggleEventLike = async (
 // Add comment to an event
 export const addEventComment = async (
   eventId: string,
-  comment: Omit<EventComment, 'id' | 'timestamp'>
+  comment: Omit<EventComment, 'id' | 'timestamp'>,
 ): Promise<void> => {
   try {
     console.log('Adding comment to event:', eventId, comment)
-    
+
     const eventRef = doc(db, EVENTS_COLLECTION, eventId)
-    
+
     // Build comment object without undefined values
+    const commentId = `${Date.now()}-${comment.userId}`
     const newComment: any = {
-      id: Date.now().toString(),
+      id: commentId,
       userId: comment.userId,
       userName: comment.userName,
       text: comment.text || '', // Ensure text is never undefined
       timestamp: new Date(), // Use regular Date instead of serverTimestamp()
     }
-    
+
     // Only add imageUrl if it exists and is not undefined/null
     if (comment.imageUrl && comment.imageUrl.trim() !== '') {
       newComment.imageUrl = comment.imageUrl
     }
-    
+
     console.log('New comment object:', newComment)
-    
+
     await updateDoc(eventRef, {
       comments: arrayUnion(newComment),
     })
@@ -212,7 +226,7 @@ export const addEventComment = async (
         creatorId,
         'New comment 💬',
         `${comment.userName} commented on ${eventData?.title || 'your event'}`,
-        { eventId, type: 'comment' }
+        { eventId, commentId, type: 'comment' },
       )
       // In-app feed notification
       await addNotification(creatorId, {
@@ -220,9 +234,10 @@ export const addEventComment = async (
         title: 'New comment 💬',
         message: `${comment.userName} commented on ${eventData?.title || 'your event'}`,
         eventId,
+        commentId,
       })
     }
-    
+
     console.log('Comment added successfully to Firestore')
   } catch (error) {
     console.error('Error adding comment to Firestore:', error)
@@ -233,24 +248,26 @@ export const addEventComment = async (
 // Update attendance status
 export const updateEventAttendance = async (
   eventId: string,
-  attendee: EventAttendee
+  attendee: EventAttendee,
 ): Promise<void> => {
   try {
     const eventRef = doc(db, EVENTS_COLLECTION, eventId)
-    
+
     // First, get the current event to remove existing attendance
     const events = await getAllEvents()
     const currentEvent = events.find(e => e.id === eventId)
-    
+
     if (currentEvent) {
       // Remove existing attendance for this user
-      const existingAttendee = currentEvent.attendees.find(a => a.userId === attendee.userId)
+      const existingAttendee = currentEvent.attendees.find(
+        a => a.userId === attendee.userId,
+      )
       if (existingAttendee) {
         await updateDoc(eventRef, {
           attendees: arrayRemove(existingAttendee),
         })
       }
-      
+
       // Add new attendance
       await updateDoc(eventRef, {
         attendees: arrayUnion(attendee),
@@ -269,12 +286,10 @@ export const updateEventAttendance = async (
           const title = 'New RSVP 📋'
           const message = `${attendee.userName} ${statusText} to ${currentEvent.title || 'your event'}`
           // Push notification (unchanged)
-          await sendNotificationToUser(
-            creatorId,
-            title,
-            message,
-            { eventId, type: 'attendance' }
-          )
+          await sendNotificationToUser(creatorId, title, message, {
+            eventId,
+            type: 'attendance',
+          })
           // In-app feed notification
           await addNotification(creatorId, {
             type: 'attendance',
@@ -285,7 +300,10 @@ export const updateEventAttendance = async (
           console.log('Attendance notification sent')
         }
       } catch (notificationError) {
-        console.error('Error sending attendance notification:', notificationError)
+        console.error(
+          'Error sending attendance notification:',
+          notificationError,
+        )
         // Don't fail the attendance update if the notification fails
       }
     }

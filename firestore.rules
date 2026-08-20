@@ -42,10 +42,13 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // In-app notification feed — users create/read/update only their own notifications
+    // In-app notification feed — authenticated clients create recipient entries;
+    // recipients alone can read, update, or delete them.
     match /notifications/{notificationId} {
+      // Notification triggers currently run in the client, so the sender may
+      // create a feed entry for another authenticated user's event.
       allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.userId is string
         && request.resource.data.read == false;
       allow read: if request.auth != null && resource.data.userId == request.auth.uid;
       allow update: if request.auth != null
