@@ -45,7 +45,7 @@ const NotificationBadge = () => {
     if (!notification.read) {
       markNotificationRead(notification.id)
       setNotifications(prev =>
-        prev.map(n => (n.id === notification.id ? { ...n, read: true } : n))
+        prev.map(n => (n.id === notification.id ? { ...n, read: true } : n)),
       )
     }
 
@@ -54,7 +54,12 @@ const NotificationBadge = () => {
 
     // Navigate based on notification type
     if (notification.eventId) {
-      router.push(`/(tabs)?eventId=${encodeURIComponent(notification.eventId)}`)
+      const commentParam = notification.commentId
+        ? `&commentId=${encodeURIComponent(notification.commentId)}`
+        : ''
+      router.push(
+        `/(tabs)?eventId=${encodeURIComponent(notification.eventId)}${commentParam}`,
+      )
     } else if (notification.type === 'payment_confirmed') {
       router.push('/profile')
     }
@@ -118,7 +123,11 @@ const NotificationBadge = () => {
 
             {notifications.length === 0 ? (
               <View style={styles.emptyState}>
-                <Ionicons name='notifications-off-outline' size={40} color='#ccc' />
+                <Ionicons
+                  name='notifications-off-outline'
+                  size={40}
+                  color='#ccc'
+                />
                 <Text style={styles.emptyText}>No notifications yet</Text>
               </View>
             ) : (
@@ -135,19 +144,36 @@ const NotificationBadge = () => {
                       onPress={() => openNotification(notification)}
                       activeOpacity={0.7}
                     >
-                      <View style={[styles.iconCircle, { backgroundColor: icon.color + '22' }]}>
-                        <Ionicons name={icon.name as any} size={20} color={icon.color} />
+                      <View
+                        style={[
+                          styles.iconCircle,
+                          { backgroundColor: icon.color + '22' },
+                        ]}
+                      >
+                        <Ionicons
+                          name={icon.name as any}
+                          size={20}
+                          color={icon.color}
+                        />
                       </View>
                       <View style={styles.notificationContent}>
-                        <Text style={styles.notificationTitle} numberOfLines={1}>
+                        <Text
+                          style={styles.notificationTitle}
+                          numberOfLines={1}
+                        >
                           {notification.title}
                         </Text>
-                        <Text style={styles.notificationMessage} numberOfLines={2}>
+                        <Text
+                          style={styles.notificationMessage}
+                          numberOfLines={2}
+                        >
                           {notification.message}
                         </Text>
                         <Text style={styles.notificationTime}>
                           {notification.createdAt
-                            ? formatDistanceToNow(notification.createdAt, { addSuffix: true })
+                            ? formatDistanceToNow(notification.createdAt, {
+                                addSuffix: true,
+                              })
                             : ''}
                         </Text>
                       </View>
@@ -280,6 +306,5 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 })
-
 
 export default NotificationBadge

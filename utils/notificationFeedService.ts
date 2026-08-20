@@ -28,6 +28,7 @@ export interface AppNotification {
   title: string
   message: string
   eventId?: string
+  commentId?: string
   read: boolean
   createdAt: Date
 }
@@ -37,6 +38,7 @@ export interface NotificationInput {
   title: string
   message: string
   eventId?: string
+  commentId?: string
 }
 
 // Convert a Firestore notification doc to the AppNotification shape
@@ -49,6 +51,7 @@ const convertNotification = (doc: any): AppNotification => {
     title: data.title,
     message: data.message,
     eventId: data.eventId,
+    commentId: data.commentId,
     read: data.read === true,
     createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
   }
@@ -60,7 +63,7 @@ const convertNotification = (doc: any): AppNotification => {
  */
 export async function addNotification(
   userId: string,
-  notification: NotificationInput
+  notification: NotificationInput,
 ): Promise<string | null> {
   try {
     if (!userId) return null
@@ -70,6 +73,7 @@ export async function addNotification(
       title: notification.title,
       message: notification.message,
       eventId: notification.eventId || null,
+      commentId: notification.commentId || null,
       read: false,
       createdAt: serverTimestamp(),
     })
@@ -86,7 +90,7 @@ export async function addNotification(
  */
 export async function addNotificationToAllUsers(
   notification: NotificationInput,
-  excludeUserId?: string
+  excludeUserId?: string,
 ): Promise<void> {
   try {
     const tokensSnapshot = await getDocs(collection(db, 'deviceTokens'))
@@ -97,7 +101,9 @@ export async function addNotificationToAllUsers(
         userIds.push(userId)
       }
     })
-    await Promise.all(userIds.map(userId => addNotification(userId, notification)))
+    await Promise.all(
+      userIds.map(userId => addNotification(userId, notification)),
+    )
   } catch (error) {
     console.error('Error adding notifications to all users:', error)
   }
@@ -109,12 +115,12 @@ export async function addNotificationToAllUsers(
  */
 export function subscribeToNotifications(
   userId: string,
-  callback: (notifications: AppNotification[]) => void
+  callback: (notifications: AppNotification[]) => void,
 ): () => void {
   const q = query(
     collection(db, NOTIFICATIONS_COLLECTION),
     where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
   )
 
   return onSnapshot(
@@ -125,16 +131,20 @@ export function subscribeToNotifications(
     },
     error => {
       console.error('Error subscribing to notifications:', error)
-    }
+    },
   )
 }
 
 /**
  * Mark a single notification as read.
  */
-export async function markNotificationRead(notificationId: string): Promise<void> {
+export async function markNotificationRead(
+  notificationId: string,
+): Promise<void> {
   try {
-    await updateDoc(doc(db, NOTIFICATIONS_COLLECTION, notificationId), { read: true })
+    await updateDoc(doc(db, NOTIFICATIONS_COLLECTION, notificationId), {
+      read: true,
+    })
   } catch (error) {
     console.error('Error marking notification as read:', error)
   }
@@ -147,7 +157,7 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
   try {
     const q = query(
       collection(db, NOTIFICATIONS_COLLECTION),
-      where('userId', '==', userId)
+      where('userId', '==', userId),
     )
     const snapshot = await getDocs(q)
     const unreadDocs = snapshot.docs.filter(d => d.data().read !== true)

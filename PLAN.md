@@ -2,6 +2,7 @@
 
 > Companion to AGENT.md (project context). This is the actionable checklist for the next version.
 > **Guiding principle (confirmed with the project owner):**
+>
 > - 📱 **Mobile keeps the existing push notification flow untouched.**
 > - 🌐 **Web gets a Firestore-backed in-app notification center** (badge counter + notification cards + tap-to-navigate). No web push, no VAPID, no service worker.
 > - Both share one notification feed in Firestore; web-only users see notifications while logged in.

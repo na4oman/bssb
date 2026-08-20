@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   StyleSheet,
   View,
@@ -12,6 +12,7 @@ import {
   TextInput,
   Alert,
   Platform,
+  LayoutChangeEvent,
 } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import Modal from 'react-native-modal'
@@ -61,30 +62,43 @@ export default function App() {
   const [events, setEvents] = useState<Event[]>([])
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
-  const [hasOpenedEventId, setHasOpenedEventId] = useState<string | null>(null)
+  const [hasOpenedNotification, setHasOpenedNotification] = useState<
+    string | null
+  >(null)
+  const [pendingCommentId, setPendingCommentId] = useState<string | null>(null)
+  const eventDetailsScrollRef = useRef<ScrollView>(null)
   const [commentText, setCommentText] = useState('')
   const [commentImage, setCommentImage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Read eventId passed in the URL (e.g. from a tapped push notification)
-  const params = useLocalSearchParams<{ eventId?: string }>()
+  const params = useLocalSearchParams<{
+    eventId?: string
+    commentId?: string
+  }>()
   const deepLinkEventId =
     typeof params.eventId === 'string' ? params.eventId : undefined
+  const deepLinkCommentId =
+    typeof params.commentId === 'string' ? params.commentId : undefined
 
   // Open the event whose id came in via a deep link (push notification tap)
   useEffect(() => {
-    if (!deepLinkEventId || deepLinkEventId === hasOpenedEventId) return
+    const notificationKey = deepLinkEventId
+      ? `${deepLinkEventId}:${deepLinkCommentId || ''}`
+      : null
+    if (!notificationKey || notificationKey === hasOpenedNotification) return
     // Wait for the events feed to load before looking the event up
     if (events.length === 0) return
 
     const target = events.find(e => e.id === deepLinkEventId)
     if (target) {
       setSelectedEvent(target)
-      setHasOpenedEventId(deepLinkEventId)
+      setPendingCommentId(deepLinkCommentId || null)
+      setHasOpenedNotification(notificationKey)
       // Remove the param so it doesn't reopen every time this screen re-renders
-      router.setParams({ eventId: undefined })
+      router.setParams({ eventId: undefined, commentId: undefined })
     }
-  }, [deepLinkEventId, events, hasOpenedEventId])
+  }, [deepLinkEventId, deepLinkCommentId, events, hasOpenedNotification])
 
   // Subscribe to events from Firebase
   useEffect(() => {
@@ -298,7 +312,10 @@ export default function App() {
         animationIn='slideInUp'
         animationOut='slideOutDown'
       >
-        <ScrollView style={styles.eventDetailsModalContent}>
+        <ScrollView
+          ref={eventDetailsScrollRef}
+          style={styles.eventDetailsModalContent}
+        >
           {/* Event Header */}
           <View style={styles.eventDetailsHeader}>
             <TouchableOpacity
@@ -444,7 +461,21 @@ export default function App() {
             <View style={styles.commentsContainer}>
               <Text style={styles.commentsTitle}>Comments</Text>
               {currentEvent.comments.map(comment => (
-                <View key={comment.id} style={styles.commentItem}>
+                <View
+                  key={comment.id}
+                  style={[
+                    styles.commentItem,
+                    pendingCommentId === comment.id && styles.targetCommentItem,
+                  ]}
+                  onLayout={(layout: LayoutChangeEvent) => {
+                    if (pendingCommentId !== comment.id) return
+                    eventDetailsScrollRef.current?.scrollTo({
+                      y: Math.max(0, layout.nativeEvent.layout.y - 140),
+                      animated: true,
+                    })
+                    setPendingCommentId(null)
+                  }}
+                >
                   <Text style={styles.commentUserName}>{comment.userName}</Text>
                   {comment.text ? (
                     <Text style={styles.commentText}>{comment.text}</Text>
@@ -714,6 +745,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f8f8',
     borderRadius: 12,
     marginBottom: 10,
+  },
+  targetCommentItem: {
+    backgroundColor: '#fff1f3',
+    borderWidth: 2,
+    borderColor: '#e21d38',
   },
   commentUserName: {
     fontSize: 16,

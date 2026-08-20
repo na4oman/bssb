@@ -18,7 +18,12 @@ const NotificationHandler = () => {
 
     // Event-related notifications open the event (events feed is the index tab)
     if (data.eventId) {
-      router.push(`/(tabs)?eventId=${encodeURIComponent(data.eventId)}`)
+      const commentParam = data.commentId
+        ? `&commentId=${encodeURIComponent(data.commentId)}`
+        : ''
+      router.push(
+        `/(tabs)?eventId=${encodeURIComponent(data.eventId)}${commentParam}`,
+      )
       return
     }
 

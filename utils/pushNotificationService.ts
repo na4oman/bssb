@@ -5,6 +5,7 @@ const EXPO_PUSH_API_URL = 'https://exp.host/--/api/v2/push/send'
 
 export interface PushNotificationData {
   eventId?: string
+  commentId?: string
   type?: string
   [key: string]: any
 }
@@ -73,10 +74,19 @@ export async function sendPushNotification(
 
     const result = await response.json()
 
-    if (response.ok) {
+    const tickets = Array.isArray(result?.data) ? result.data : []
+    const failedTickets = tickets.filter(
+      (ticket: { status?: string }) => ticket.status !== 'ok',
+    )
+
+    if (response.ok && failedTickets.length === 0) {
       console.log('Push notifications sent successfully:', result)
     } else {
-      console.error('Error sending push notifications:', result)
+      console.error('Error sending push notifications:', {
+        httpStatus: response.status,
+        failedTickets,
+        result,
+      })
     }
   } catch (error) {
     console.error('Network error sending push notifications:', error)
