@@ -1,4 +1,4 @@
-import { Alert } from 'react-native'
+import { Alert, Platform } from 'react-native'
 
 // Cloudinary configuration - direct values for production reliability
 const CLOUDINARY_CLOUD_NAME = 'dp1wjkhmr'
@@ -8,7 +8,7 @@ console.log('Cloudinary Config loaded successfully')
 
 /**
  * Upload an image to Cloudinary
- * @param uri - Local URI of the image
+ * @param uri - Local URI / data URL / Blob of the image
  * @param folder - Folder path in Cloudinary (e.g., 'events', 'comments')
  * @returns Download URL of the uploaded image
  */
@@ -21,35 +21,57 @@ export const uploadImage = async (
     console.log('Cloud Name:', CLOUDINARY_CLOUD_NAME)
     console.log('Upload Preset:', CLOUDINARY_UPLOAD_PRESET)
     console.log('Folder:', folder)
-    console.log('Image URI:', uri)
+    console.log('Image URI prefix:', String(uri).slice(0, 50))
 
     // Create form data
     const formData = new FormData()
-    
-    // Add the file
-    formData.append('file', {
-      uri,
-      type: 'image/jpeg',
-      name: `${folder}_${Date.now()}.jpg`,
-    } as any)
-    
+
+    if (Platform.OS === 'web') {
+      // On web, expo-image-picker returns a `data:` URL. Convert it to a Blob
+      // so Cloudinary can accept it. Omit the Content-Type header — the
+      // browser sets the correct multipart boundary automatically.
+      let blob: Blob
+      const uriValue = uri as any
+      if (typeof uri === 'string' && uri.startsWith('data:')) {
+        const res = await fetch(uri)
+        blob = await res.blob()
+      } else if (
+        uriValue instanceof Blob ||
+        (typeof File !== 'undefined' && uriValue instanceof File)
+      ) {
+        blob = uriValue as Blob
+      } else {
+        blob = new Blob([uri], { type: 'image/jpeg' })
+      }
+      formData.append('file', blob, `${folder}_${Date.now()}.jpg`)
+    } else {
+      // Native: append the local file object
+      formData.append('file', {
+        uri,
+        type: 'image/jpeg',
+        name: `${folder}_${Date.now()}.jpg`,
+      } as any)
+    }
+
     // Add upload preset
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
-    
+
     // Add folder
     formData.append('folder', folder)
 
     console.log('Uploading to Cloudinary...')
 
     // Upload to Cloudinary
+    const headers: Record<string, string> = Platform.OS === 'web'
+      ? {}
+      : { 'Content-Type': 'multipart/form-data' }
+
     const response = await fetch(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
       {
         method: 'POST',
         body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers,
       }
     )
 

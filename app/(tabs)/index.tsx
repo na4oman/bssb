@@ -192,15 +192,18 @@ export default function App() {
 
   const pickCommentImage = async () => {
     try {
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync()
+      // expo-image-picker supports web; skip native permission on the browser.
+      if (Platform.OS !== 'web') {
+        const permissionResult =
+          await ImagePicker.requestMediaLibraryPermissionsAsync()
 
-      if (!permissionResult.granted) {
-        Alert.alert(
-          'Permission Denied',
-          'Sorry, we need camera roll permissions to attach images!',
-        )
-        return
+        if (!permissionResult.granted) {
+          Alert.alert(
+            'Permission Denied',
+            'Sorry, we need camera roll permissions to attach images!',
+          )
+          return
+        }
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({

@@ -6,7 +6,6 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
   onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore'
@@ -85,22 +84,28 @@ export async function addNotification(
 }
 
 /**
- * Write an in-app notification for every user that has a registered device token.
- * Used for broadcasts (e.g. "New event created"), mirroring notifyAllUsers.
+ * Write an in-app notification for every registered member.
+ * Used for broadcasts (e.g. "New event created").
+ * Queries the `users` collection (not `deviceTokens`) so web-only users, who
+ * register no device token, also receive the in-app notification.
  */
 export async function addNotificationToAllUsers(
   notification: NotificationInput,
   excludeUserId?: string,
 ): Promise<void> {
   try {
-    const tokensSnapshot = await getDocs(collection(db, 'deviceTokens'))
+    const usersSnapshot = await getDocs(collection(db, 'users'))
     const userIds: string[] = []
-    tokensSnapshot.forEach(tokenDoc => {
-      const userId = tokenDoc.data().userId
+    usersSnapshot.forEach(userDoc => {
+      const userId = userDoc.id
       if (userId && userId !== excludeUserId && !userIds.includes(userId)) {
         userIds.push(userId)
       }
     })
+    if (userIds.length === 0) {
+      console.log('No users to notify')
+      return
+    }
     await Promise.all(
       userIds.map(userId => addNotification(userId, notification)),
     )
@@ -112,21 +117,25 @@ export async function addNotificationToAllUsers(
 /**
  * Subscribe to a user's in-app notification feed (newest first).
  * Returns an unsubscribe function.
+ *
+ * NOTE: We deliberately do NOT use orderBy('createdAt') in the Firestore query.
+ * A where() + orderBy() combo requires a composite index to be deployed in
+ * Firebase, and if it's missing the whole subscription fails silently ("query
+ * requires an index") — the badge would never update. Querying by userId only
+ * and sorting client-side works with default single-field indexes.
  */
 export function subscribeToNotifications(
   userId: string,
   callback: (notifications: AppNotification[]) => void,
 ): () => void {
-  const q = query(
-    collection(db, NOTIFICATIONS_COLLECTION),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc'),
-  )
+  const q = query(collection(db, NOTIFICATIONS_COLLECTION), where('userId', '==', userId))
 
   return onSnapshot(
     q,
     snapshot => {
-      const notifications = snapshot.docs.map(convertNotification)
+      const notifications = snapshot.docs
+        .map(convertNotification)
+        .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))
       callback(notifications)
     },
     error => {

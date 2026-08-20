@@ -26,6 +26,14 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(true)
   
   const { login, error } = useAuth()
+  const { user } = useAuth()
+
+  // If a session is already present (e.g. persisted web session), skip login.
+  useEffect(() => {
+    if (user) {
+      router.replace('/(tabs)')
+    }
+  }, [user])
 
   // Load stored credentials on component mount
   useEffect(() => {

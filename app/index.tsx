@@ -1,13 +1,30 @@
-import React from 'react'
-import { View, Text, StyleSheet } from 'react-native'
-import { Redirect } from 'expo-router'
+import React from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { Redirect } from 'expo-router';
+import { useAuth } from '../contexts/AuthContext';
 
 console.log('IndexScreen: Starting...')
 
 export default function IndexScreen() {
-  console.log('IndexScreen: Rendering - redirecting to login immediately')
-  
-  // Always redirect to login first, let login handle auth state
+  console.log('IndexScreen: Rendering...')
+  const { user, loading } = useAuth()
+
+  // While the auth state is being restored (e.g. on web refresh), show a
+  // splash instead of flashing the login screen.
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#e21d38" />
+      </View>
+    )
+  }
+
+  // Persisted session present → go straight to the app.
+  if (user) {
+    return <Redirect href="/(tabs)" />
+  }
+
+  // No session → require login.
   return <Redirect href="/(auth)/login" />
 }
 

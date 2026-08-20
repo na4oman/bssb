@@ -88,8 +88,21 @@ Pre-existing (unrelated) `tsc` errors exist in `firebaseAdmin.ts`, `utils/notifi
 ## 7. Non-negotiables / constraints
 
 - **Never commit** `*firebase-adminsdk*.json`, `.env`, or any private key.
-- **Never load `firebaseAdmin.ts` on web** — it imports `firebase-admin` and reads a service account private key; it is client-side risky and must be platform-gated/excluded from the web bundle. (Open concern: consider moving server-side work to Firebase Functions later.)
+- **`firebaseAdmin.ts` and `utils/notifications.ts` have been removed** (dead/insecure client code that imported `firebase-admin` + a service-account private key). Never reintroduce `firebase-admin` into the client bundle — server-side work (e.g. FCM sends) belongs in a serverless function / Firebase Functions with the key injected as a secret.
 - **`expo-notifications` is native-only.** Any notification code imported on web must be guarded with `Platform.OS === 'web'` or fail gracefully.
+- **Web fallbacks:** `EventForm` uses `<input type="datetime-local">` on web; `expo-image-picker` works on web (skip the native permission step only); `utils/imageService.ts` uploads `data:`/Blob images to Cloudinary on web. Mobile paths are unchanged.
 - **Don't break the Android bare workflow** — if a native change is needed, run prebuild and commit the `android/` diffs.
 - UI theme: club red `#e21d38`, dark header, black splash.
+
+## 8. FCM HTTP v1 push (service-account sender)
+
+- **FCM V1** = Firebase Cloud Messaging **HTTP v1** API — `POST https://fcm.googleapis.com/v1/projects/<project>/messages:send`. This is Google's current Android push API (it supersedes the legacy `send` / topic endpoints).
+- A **service account** is a Google Cloud identity (a robot account) used as the server-to-server principal that authenticates FCM sends. The project key is `safc-8863b-firebase-adminsdk-fbsvc-809dbf848a.json` (git-ignored via `*.firebase-adminsdk*.json`, `*firebase-adminsdk-*.json` and `serviceAccountKey.json`). Per §7 it is uploaded to the **Expo dashboard only** (project → Credentials → Android → FCM V1 service account) and must **never** be bundled into the client app.
+- **Client push (mobile) is unchanged and verified on-device.** Mobile still uses the Expo push gateway via `expo-notifications` + `utils/pushNotificationService.ts` (`https://exp.host/--/api/v2/push/send`). Do not remove/replace it (§6.1).
+- **Server-side sender utility (verified):** `scripts/fcmV1.js` + `scripts/sendFcmV1.js` — a dependency-free FCM HTTP v1 sender that mints its own OAuth2 access token from the service-account JSON by self-signing an RS256 JWT (scope `https://www.googleapis.com/auth/firebase.messaging`) and exchanging it at `https://oauth2.googleapis.com/token`, then POSTing to the `messages:send` endpoint. Verified live:
+  - `node scripts/sendFcmV1.js --token-only` → returns a real `ya29.*` access token (masked).
+  - `node scripts/sendFcmV1.js --validate-only` → HTTP 200 from `fcm.googleapis.com/v1/projects/safc-8863b/messages:send`.
+  - Flags: `--help`, `--dry-run` (build JWT + payload, no network), `--token-only` (fetch token only), `--validate-only` (validate auth + schema, no delivery), or `<token> "<title>" "<body>" [dataJson]` to send.
+- This sender is the reusable building block for the deferred "move push sending to Firebase Functions" work (see PLAN.md, Phase 5 / out-of-scope). It is **server-side only** — never `require` it from the Expo client bundle, and never commit the service-account key.
+
 

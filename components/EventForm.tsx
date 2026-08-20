@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native'
 import DateTimePickerModal from 'react-native-modal-datetime-picker'
 import * as ImagePicker from 'expo-image-picker'
@@ -39,7 +40,44 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
     boolean | null
   >(null)
 
+  // Convert a Date to the value format expected by <input type="datetime-local">
+  const toDateTimeLocal = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+      d.getHours(),
+    )}:${pad(d.getMinutes())}`
+  }
+
   const DateTimeInput = () => {
+    // On web, react-native-modal-datetime-picker / the native datetime picker
+    // are unsupported, so fall back to the browser's datetime-local input.
+    if (Platform.OS === 'web') {
+      return (
+        <input
+          type='datetime-local'
+          value={toDateTimeLocal(newEvent.date)}
+          onChange={e => {
+            const val = e.target.value
+            if (val) {
+              setNewEvent(prev => ({ ...prev, date: new Date(val) }))
+            }
+          }}
+          style={{
+            width: '100%',
+            borderWidth: 1,
+            borderColor: '#ddd',
+            borderRadius: 10,
+            padding: 10,
+            marginBottom: 15,
+            fontSize: 16,
+            color: '#000',
+            backgroundColor: '#f9f9f9',
+            boxSizing: 'border-box',
+          }}
+        />
+      )
+    }
+
     return (
       <View>
         <TouchableOpacity
@@ -68,25 +106,28 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
   }
 
   const pickImage = async () => {
-    if (mediaLibraryPermission === false) {
+    // expo-image-picker supports web: skip native permission on the browser.
+    if (Platform.OS !== 'web' && mediaLibraryPermission === false) {
       Alert.alert(
         'Permission Required',
-        'Please grant media library access in your device settings.'
+        'Please grant media library access in your device settings.',
       )
       return
     }
 
     try {
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (Platform.OS !== 'web') {
+        const permissionResult =
+          await ImagePicker.requestMediaLibraryPermissionsAsync()
 
-      if (!permissionResult.granted) {
-        setMediaLibraryPermission(false)
-        Alert.alert(
-          'Permission Denied',
-          'Sorry, we need camera roll permissions to make this work!'
-        )
-        return
+        if (!permissionResult.granted) {
+          setMediaLibraryPermission(false)
+          Alert.alert(
+            'Permission Denied',
+            'Sorry, we need camera roll permissions to make this work!',
+          )
+          return
+        }
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -107,7 +148,7 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
       console.error('Error picking image:', error)
       Alert.alert(
         'Image Selection Error',
-        'Unable to select image. Please try again.'
+        'Unable to select image. Please try again.',
       )
     }
   }
@@ -120,7 +161,11 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
       Alert.alert('Creating Event', 'Please wait...')
 
       // Upload image to Cloudinary if a local image was selected
-      if (newEvent.imageUrl && newEvent.imageUrl.startsWith('file://')) {
+      if (
+        newEvent.imageUrl &&
+        (newEvent.imageUrl.startsWith('file://') ||
+          newEvent.imageUrl.startsWith('data:'))
+      ) {
         console.log('Uploading image to Cloudinary...')
         uploadedImageUrl = await uploadImage(newEvent.imageUrl, 'bssb-events')
         console.log('Image uploaded successfully:', uploadedImageUrl)

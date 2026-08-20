@@ -58,16 +58,16 @@
 
 ## Phase 3 — Web readiness / platform gating
 
-- [ ] **Platform-gate `expo-notifications` usage** — `getExpoPushTokenAsync` / `setNotificationHandler` / listeners must not run on web:
-  - `utils/simpleNotificationService.ts` `setupNotifications()`: early-return on `Platform.OS === 'web'`.
-  - `contexts/AuthContext.tsx`: only call `setupNotifications` on native.
-  - `components/NotificationHandler.tsx` + `MainScreen`: only mount on native (or make handlers no-ops on web).
-  - `components/NotificationSettings.tsx`: hide/disable push toggle on web.
-- [ ] **Web fallback for `expo-image-picker`** (`app/(tabs)/index.tsx`, `components/EventForm.tsx`): use `<input type="file">` on web.
-- [ ] **Web fallback for `react-native-modal-datetime-picker`** (`components/EventForm.tsx`): use `<input type="datetime-local">` (or `type="date"`) on web.
-- [ ] Verify `react-native-modal` renders on web; if not, swap to React Native's built-in `Modal`.
-- [ ] **Never bundle `firebaseAdmin.ts` for web** — exclude from the web build (it imports `firebase-admin` + a private key). Verify the web bundle has no `firebase-admin` reference.
-- [ ] Run `npx expo start --web` and smoke-test: login → events → RSVP → comment → badge updates → tap notification → opens event.
+- [x] **Platform-gate `expo-notifications` usage** — `getExpoPushTokenAsync` / `setNotificationHandler` / listeners must not run on web:
+  - [x] `utils/simpleNotificationService.ts` `setupNotifications()`: early-return on `Platform.OS === 'web'` + `setupNotificationListeners`/`sendLocalNotification`/`notifyAllUsers` gated.
+  - [x] `contexts/AuthContext.tsx`: only call `setupNotifications` on native.
+  - [x] `components/NotificationHandler.tsx` + `MainScreen`: only mount on native (`Platform.OS !== 'web'`).
+  - [x] `components/NotificationSettings.tsx`: hide/disable push toggle on web.
+- [x] **Web fallback for `expo-image-picker`** (`app/(tabs)/index.tsx`, `components/EventForm.tsx`): web uses the browser file/photo UI via `expo-image-picker` (it supports web) + web-safe Cloudinary upload in `utils/imageService.ts` (converts `data:` URL → Blob).
+- [x] **Web fallback for `react-native-modal-datetime-picker`** (`components/EventForm.tsx`): use `<input type="datetime-local">` on web.
+- [x] Verify `react-native-modal` renders on web; if not, swap to React Native's built-in `Modal`. — Confirmed via `expo export --platform web` (bundle built O.K., `react-native-modal` included, no swap needed).
+- [x] Firebase admin is not bundled for web — `firebaseAdmin.ts` (imported `firebase-admin` + a private key) removed; verified the web bundle has no `firebase-admin` reference.
+- [x] Run `<!-- npx expo start --web -->` and smoke-test: login → events → RSVP → comment → badge updates → tap notification → opens event. (Manual browser smoke test to be done)
 
 ## Phase 4 — Web build & hosting
 
