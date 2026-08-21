@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -8,75 +8,78 @@ import {
   ScrollView,
   Image,
   Dimensions,
-} from 'react-native';
-import axios from 'axios';
-import { footballDataApiKey } from '../../config/config';
+} from 'react-native'
+import axios from 'axios'
+import { footballDataApiKey } from '../../config/config'
+import { footballDataGet } from '../../utils/footballDataService'
 
 type TeamStats = {
-  position: number;
+  position: number
   team: {
-    id: number;
-    name: string;
-    crest: string;
-  };
-  playedGames: number;
-  form: string;
-  won: number;
-  draw: number;
-  lost: number;
-  points: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  goalDifference: number;
-};
+    id: number
+    name: string
+    crest: string
+  }
+  playedGames: number
+  form: string
+  won: number
+  draw: number
+  lost: number
+  points: number
+  goalsFor: number
+  goalsAgainst: number
+  goalDifference: number
+}
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
 export default function TableScreen() {
-  const [standings, setStandings] = useState<TeamStats[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [standings, setStandings] = useState<TeamStats[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchStandings = async () => {
       try {
         // EFL Championship league code
-        const response = await axios.get('https://api.football-data.org/v4/competitions/PL/standings', {
+        const response = await footballDataGet('competitions/PL/standings', {
           headers: {
-            'X-Auth-Token': footballDataApiKey
-          }
-        });
+            'X-Auth-Token': footballDataApiKey,
+          },
+        })
 
         // Extract and process standings
-        const processedStandings = response.data.standings[0].table.map((team: TeamStats) => ({
-          position: team.position,
-          team: {
-            id: team.team.id,
-            name: team.team.name,
-            crest: team.team.crest
-          },
-          playedGames: team.playedGames,
-          form: team.form,
-          won: team.won,
-          draw: team.draw,
-          lost: team.lost,
-          points: team.points,
-          goalsFor: team.goalsFor,
-          goalsAgainst: team.goalsAgainst,
-          goalDifference: team.goalDifference
-        }));
+        const processedStandings = response.data.standings[0].table.map(
+          (team: TeamStats) => ({
+            position: team.position,
+            team: {
+              id: team.team.id,
+              name: team.team.name,
+              crest: team.team.crest,
+            },
+            playedGames: team.playedGames,
+            form: team.form,
+            won: team.won,
+            draw: team.draw,
+            lost: team.lost,
+            points: team.points,
+            goalsFor: team.goalsFor,
+            goalsAgainst: team.goalsAgainst,
+            goalDifference: team.goalDifference,
+          }),
+        )
 
-        setStandings(processedStandings);
-        setLoading(false);
+        setStandings(processedStandings)
+        setLoading(false)
       } catch (err) {
-        console.error('Error fetching standings:', err);
-        setError('Failed to fetch league standings');
-        setLoading(false);
+        console.error('Error fetching standings:', err)
+        setError('Failed to fetch league standings')
+        setLoading(false)
       }
-    };
+    }
 
-    fetchStandings();
-  }, []);
+    fetchStandings()
+  }, [])
 
   const renderTableHeader = () => (
     <View style={styles.headerContainer}>
@@ -120,32 +123,40 @@ export default function TableScreen() {
         </View>
       </View>
     </View>
-  );
+  )
 
   const renderTeamRow = ({ item }: { item: TeamStats }) => (
     <View style={styles.rowContainer}>
       <View style={styles.fixedColumn}>
         <View style={styles.fixedColumnRow}>
           <View style={styles.positionCell}>
-            <Text style={[styles.positionText, { paddingLeft: 10 }]}>{item.position}</Text>
+            <Text style={[styles.positionText, { paddingLeft: 10 }]}>
+              {item.position}
+            </Text>
           </View>
           <View style={styles.teamLogoCell}>
-            <Image 
-              source={{ uri: item.team.crest }} 
-              style={styles.teamLogo} 
-              resizeMode="contain"
+            <Image
+              source={{ uri: item.team.crest }}
+              style={styles.teamLogo}
+              resizeMode='contain'
             />
           </View>
         </View>
       </View>
       <View style={styles.scrollableColumns}>
         <View style={[styles.teamNameCell, { minWidth: 140 }]}>
-          <Text style={styles.teamNameText} numberOfLines={1} ellipsizeMode="tail">
+          <Text
+            style={styles.teamNameText}
+            numberOfLines={1}
+            ellipsizeMode='tail'
+          >
             {item.team.name}
           </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 40 }]}>
-          <Text style={[styles.statText, styles.pointsText]}>{item.points}</Text>
+          <Text style={[styles.statText, styles.pointsText]}>
+            {item.points}
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 30 }]}>
           <Text style={styles.statText}>{item.playedGames}</Text>
@@ -170,14 +181,14 @@ export default function TableScreen() {
         </View>
       </View>
     </View>
-  );
+  )
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#e21d38" />
+        <ActivityIndicator size='large' color='#e21d38' />
       </View>
-    );
+    )
   }
 
   if (error) {
@@ -185,12 +196,12 @@ export default function TableScreen() {
       <View style={styles.container}>
         <Text style={styles.errorText}>{error}</Text>
       </View>
-    );
+    )
   }
 
   return (
-    <ScrollView 
-      horizontal 
+    <ScrollView
+      horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.scrollContainer}
     >
@@ -198,13 +209,13 @@ export default function TableScreen() {
         {renderTableHeader()}
         <FlatList
           data={standings}
-          keyExtractor={(item) => item.team.id.toString()}
+          keyExtractor={item => item.team.id.toString()}
           renderItem={renderTeamRow}
           contentContainerStyle={styles.tableContent}
         />
       </View>
     </ScrollView>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -312,4 +323,4 @@ const styles = StyleSheet.create({
     marginTop: 20,
     color: 'red',
   },
-});
+})

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   View,
   Text,
@@ -11,697 +11,835 @@ import {
   Modal,
   ScrollView,
   SafeAreaView,
-  Alert
-} from 'react-native';
-import axios from 'axios';
-import { footballDataApiKey } from '../../config/config';
-import { Ionicons } from '@expo/vector-icons';
-import * as Notifications from 'expo-notifications';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getTeamStats } from '../../utils/statsService';
+  Alert,
+} from 'react-native'
+import axios from 'axios'
+import { footballDataApiKey } from '../../config/config'
+import { Ionicons } from '@expo/vector-icons'
+import * as Notifications from 'expo-notifications'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { getTeamStats } from '../../utils/statsService'
+import { footballDataGet } from '../../utils/footballDataService'
 
 type MatchHead2Head = {
-  numberOfMatches: number;
-  totalGoals: number;
+  numberOfMatches: number
+  totalGoals: number
   homeTeam: {
-    wins: number;
-    draws: number;
-    losses: number;
-  };
+    wins: number
+    draws: number
+    losses: number
+  }
   awayTeam: {
-    wins: number;
-    draws: number;
-    losses: number;
-  };
-};
+    wins: number
+    draws: number
+    losses: number
+  }
+}
 
 type MatchReferee = {
-  id: number;
-  name: string;
-  role: string;
-  nationality: string;
-};
+  id: number
+  name: string
+  role: string
+  nationality: string
+}
 
 type MatchScore = {
-  winner: 'HOME_TEAM' | 'AWAY_TEAM' | 'DRAW' | null;
-  duration: 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT';
+  winner: 'HOME_TEAM' | 'AWAY_TEAM' | 'DRAW' | null
+  duration: 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT'
   fullTime: {
-    home: number | null;
-    away: number | null;
-  };
+    home: number | null
+    away: number | null
+  }
   halfTime?: {
-    home: number | null;
-    away: number | null;
-  };
+    home: number | null
+    away: number | null
+  }
   extraTime?: {
-    home: number | null;
-    away: number | null;
-  };
+    home: number | null
+    away: number | null
+  }
   penalties?: {
-    home: number | null;
-    away: number | null;
-  };
-};
+    home: number | null
+    away: number | null
+  }
+}
 
 type FixtureMatch = {
-  id: number;
+  id: number
   homeTeam: {
-    id: number;
-    name: string;
-    crest: string;
-  };
+    id: number
+    name: string
+    crest: string
+  }
   awayTeam: {
-    id: number;
-    name: string;
-    crest: string;
-  };
-  status: string;
-  utcDate: string;
-  stage?: string;
-  matchday?: number;
-  score?: MatchScore;
-  referees?: MatchReferee[];
-  head2head?: MatchHead2Head;
-};
+    id: number
+    name: string
+    crest: string
+  }
+  status: string
+  utcDate: string
+  stage?: string
+  matchday?: number
+  score?: MatchScore
+  referees?: MatchReferee[]
+  head2head?: MatchHead2Head
+}
 
 type TeamStatistics = {
-  id: number;
-  name: string;
-  crest: string;
-  founded: number;
-  venue: string;
+  id: number
+  name: string
+  crest: string
+  founded: number
+  venue: string
   runningCompetitions: Array<{
-    id: number;
-    name: string;
-    code: string;
-    type: string;
-    emblem: string;
-  }>;
-};
+    id: number
+    name: string
+    code: string
+    type: string
+    emblem: string
+  }>
+}
 
 type MatchStatistics = {
-  totalMatches: number;
-  wins: number;
-  draws: number;
-  losses: number;
-  goalsScored: number;
-  goalsConceded: number;
-  cleanSheets: number;
+  totalMatches: number
+  wins: number
+  draws: number
+  losses: number
+  goalsScored: number
+  goalsConceded: number
+  cleanSheets: number
   homeRecord: {
-    matches: number;
-    wins: number;
-    draws: number;
-    losses: number;
-  };
+    matches: number
+    wins: number
+    draws: number
+    losses: number
+  }
   awayRecord: {
-    matches: number;
-    wins: number;
-    draws: number;
-    losses: number;
-  };
-};
+    matches: number
+    wins: number
+    draws: number
+    losses: number
+  }
+}
 
 type PlayerScorer = {
-  id: number;
-  name: string;
-  goals: number;
-  matches: number;
-  goalsPerMatch: number;
-};
+  id: number
+  name: string
+  goals: number
+  matches: number
+  goalsPerMatch: number
+}
 
 type PlayerAssist = {
-  id: number;
-  name: string;
-  assists: number;
-  matches: number;
-  assistsPerMatch: number;
-};
+  id: number
+  name: string
+  assists: number
+  matches: number
+  assistsPerMatch: number
+}
 
 export default function FixturesScreen(): React.ReactElement {
-  const [fixtures, setFixtures] = useState<FixtureMatch[]>([]);
-  const [pastFixtures, setPastFixtures] = useState<FixtureMatch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'stats'>('upcoming');
-  const [isTabChanging, setIsTabChanging] = useState(false);
-  const [selectedMatch, setSelectedMatch] = useState<FixtureMatch | null>(null);
-  const [matchDetailsModalVisible, setMatchDetailsModalVisible] = useState(false);
-  const [nextMatchCountdown, setNextMatchCountdown] = useState<string>('');
+  const [fixtures, setFixtures] = useState<FixtureMatch[]>([])
+  const [pastFixtures, setPastFixtures] = useState<FixtureMatch[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'stats'>(
+    'upcoming',
+  )
+  const [isTabChanging, setIsTabChanging] = useState(false)
+  const [selectedMatch, setSelectedMatch] = useState<FixtureMatch | null>(null)
+  const [matchDetailsModalVisible, setMatchDetailsModalVisible] =
+    useState(false)
+  const [nextMatchCountdown, setNextMatchCountdown] = useState<string>('')
   const [nextMatchForm, setNextMatchForm] = useState<{
-    homeTeam: string[];
-    awayTeam: string[];
-  } | null>(null);
-  const [matchReminders, setMatchReminders] = useState<{ [key: number]: string }>({});
-  const [teamStats, setTeamStats] = useState<TeamStatistics | null>(null);
-  const [matchStats, setMatchStats] = useState<MatchStatistics | null>(null);
-  const [topScorers, setTopScorers] = useState<PlayerScorer[]>([]);
-  const [topAssists, setTopAssists] = useState<PlayerAssist[]>([]);
-  const [statsLoading, setStatsLoading] = useState(false);
+    homeTeam: string[]
+    awayTeam: string[]
+  } | null>(null)
+  const [matchReminders, setMatchReminders] = useState<{
+    [key: number]: string
+  }>({})
+  const [teamStats, setTeamStats] = useState<TeamStatistics | null>(null)
+  const [matchStats, setMatchStats] = useState<MatchStatistics | null>(null)
+  const [topScorers, setTopScorers] = useState<PlayerScorer[]>([])
+  const [topAssists, setTopAssists] = useState<PlayerAssist[]>([])
+  const [statsLoading, setStatsLoading] = useState(false)
 
   // Countdown timer for next match
   useEffect(() => {
-    if (fixtures.length === 0) return;
+    if (fixtures.length === 0) return
 
-    const nextMatch = fixtures[0];
+    const nextMatch = fixtures[0]
     const updateCountdown = () => {
-      const now = new Date().getTime();
-      const matchTime = new Date(nextMatch.utcDate).getTime();
-      const distance = matchTime - now;
+      const now = new Date().getTime()
+      const matchTime = new Date(nextMatch.utcDate).getTime()
+      const distance = matchTime - now
 
       if (distance < 0) {
-        setNextMatchCountdown('Match started!');
-        return;
+        setNextMatchCountdown('Match started!')
+        return
       }
 
-      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24))
+      const hours = Math.floor(
+        (distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+      )
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000)
 
       if (days > 0) {
-        setNextMatchCountdown(`${days}d ${hours}h ${minutes}m`);
+        setNextMatchCountdown(`${days}d ${hours}h ${minutes}m`)
       } else if (hours > 0) {
-        setNextMatchCountdown(`${hours}h ${minutes}m ${seconds}s`);
+        setNextMatchCountdown(`${hours}h ${minutes}m ${seconds}s`)
       } else {
-        setNextMatchCountdown(`${minutes}m ${seconds}s`);
+        setNextMatchCountdown(`${minutes}m ${seconds}s`)
       }
-    };
+    }
 
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
+    updateCountdown()
+    const interval = setInterval(updateCountdown, 1000)
 
-    return () => clearInterval(interval);
-  }, [fixtures]);
+    return () => clearInterval(interval)
+  }, [fixtures])
 
   const fetchFixtures = useCallback(async () => {
     try {
-      console.log('Fetching fixtures started');
-      setLoading(true);
-      setError(null);
+      console.log('Fetching fixtures started')
+      setLoading(true)
+      setError(null)
 
       // EFL Championship league code
-      const upcomingResponse = await axios.get('https://api.football-data.org/v4/competitions/PL/matches', {
-        headers: {
-          'X-Auth-Token': footballDataApiKey
-        },
-        params: {
-          status: 'SCHEDULED',
-          limit: 10
-        }
-      });
-
-      const pastResponse = await axios.get('https://api.football-data.org/v4/competitions/PL/matches', {
-        headers: {
-          'X-Auth-Token': footballDataApiKey
-        },
-        params: {
-          status: 'FINISHED',
-          limit: 10
-        }
-      });
-
-      // console.log('Upcoming Matches Raw Response:', JSON.stringify(upcomingResponse.data, null, 2));
-      // console.log('Past Matches Raw Response:', JSON.stringify(pastResponse.data, null, 2));
-
-      // Filter for Sunderland matches
-      const sunderlandUpcomingFixtures = upcomingResponse.data.matches.filter((match: FixtureMatch) => 
-        match.homeTeam.name.includes('Sunderland') || match.awayTeam.name.includes('Sunderland')
-      );
-
-      const sunderlandPastFixtures = pastResponse.data.matches
-        .filter((match: FixtureMatch) => 
-          match.homeTeam.name.includes('Sunderland') || match.awayTeam.name.includes('Sunderland')
-        )
-        .sort((a: FixtureMatch, b: FixtureMatch) => 
-          new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime()
-        );
-
-      // console.log('Upcoming Fixtures:', sunderlandUpcomingFixtures.length);
-      // console.log('Past Fixtures:', sunderlandPastFixtures.length);
-
-      // Ensure we have data
-      if (sunderlandUpcomingFixtures.length === 0 && sunderlandPastFixtures.length === 0) {
-        setError('No Sunderland fixtures found');
-      }
-
-      setFixtures(sunderlandUpcomingFixtures);
-      setPastFixtures(sunderlandPastFixtures);
-
-      // Fetch form for next match
-      if (sunderlandUpcomingFixtures.length > 0) {
-        const nextMatch = sunderlandUpcomingFixtures[0];
-        await fetchTeamsForm(nextMatch.homeTeam.id, nextMatch.awayTeam.id);
-      }
-
-      setLoading(false);
-    } catch (err) {
-      console.error('Full Error Object:', err);
-      console.error('Error Response:', (err as any).response?.data);
-      
-      let errorMessage = 'Failed to fetch match fixtures';
-      if (axios.isAxiosError(err)) {
-        if (err.response) {
-          // The request was made and the server responded with a status code
-          errorMessage = `API Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`;
-        } else if (err.request) {
-          // The request was made but no response was received
-          errorMessage = 'No response received from server';
-        }
-      }
-      
-      setError(errorMessage);
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchTeamsForm = async (homeTeamId: number, awayTeamId: number) => {
-    try {
-      // Fetch last matches for both teams
-      const [homeTeamMatches, awayTeamMatches] = await Promise.all([
-        axios.get(`https://api.football-data.org/v4/teams/${homeTeamId}/matches`, {
-          headers: { 'X-Auth-Token': footballDataApiKey },
-          params: { status: 'FINISHED', limit: 5 }
-        }),
-        axios.get(`https://api.football-data.org/v4/teams/${awayTeamId}/matches`, {
-          headers: { 'X-Auth-Token': footballDataApiKey },
-          params: { status: 'FINISHED', limit: 5 }
-        })
-      ]);
-
-      const homeForm = homeTeamMatches.data.matches.map((match: FixtureMatch) => {
-        const isHome = match.homeTeam.id === homeTeamId;
-        const teamScore = isHome ? match.score?.fullTime?.home : match.score?.fullTime?.away;
-        const opponentScore = isHome ? match.score?.fullTime?.away : match.score?.fullTime?.home;
-
-        if (teamScore === null || teamScore === undefined || opponentScore === null || opponentScore === undefined) return 'U';
-        if (teamScore > opponentScore) return 'W';
-        if (teamScore < opponentScore) return 'L';
-        return 'D';
-      });
-
-      const awayForm = awayTeamMatches.data.matches.map((match: FixtureMatch) => {
-        const isHome = match.homeTeam.id === awayTeamId;
-        const teamScore = isHome ? match.score?.fullTime?.home : match.score?.fullTime?.away;
-        const opponentScore = isHome ? match.score?.fullTime?.away : match.score?.fullTime?.home;
-
-        if (teamScore === null || teamScore === undefined || opponentScore === null || opponentScore === undefined) return 'U';
-        if (teamScore > opponentScore) return 'W';
-        if (teamScore < opponentScore) return 'L';
-        return 'D';
-      });
-
-      setNextMatchForm({
-        homeTeam: homeForm,
-        awayTeam: awayForm
-      });
-    } catch (err) {
-      console.error('Error fetching teams form:', err);
-    }
-  };
-
-  // Fetch top scorers and assists from ESPN (scraping)
-  const fetchTopScorersFromESPN = useCallback(async (): Promise<{ scorers: PlayerScorer[], assists: PlayerAssist[] }> => {
-    try {
-      console.log('Fetching top scorers and assists from ESPN...');
-      
-      // Fetch the ESPN stats page
-      const response = await axios.get(
-        'https://www.espn.co.uk/football/team/stats/_/id/366/sunderland',
-        {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          }
-        }
-      );
-
-      const html = response.data;
-      
-      // Log a sample of the HTML to help debug
-      console.log('ESPN HTML sample (first 500 chars):', html.substring(0, 500));
-      console.log('Searching for "Top Scorers" in HTML:', html.includes('Top Scorers'));
-      console.log('Searching for "Top Assists" in HTML:', html.includes('Top Assists'));
-      
-      // Parse Top Scorers
-      const scorersMatch = html.match(/Top ScorersRKNamePG(.*?)Top Assists/s);
-      const scorers: PlayerScorer[] = [];
-      
-      if (scorersMatch && scorersMatch[1]) {
-        const scorersText = scorersMatch[1];
-        console.log('Raw scorers text:', scorersText.substring(0, 200));
-        
-        // Parse format: "1Brian Brobbey1952Wilson Isidor214..."
-        // Pattern: rank + name + matches (2 digits) + goals (1 digit)
-        const scorerPattern = /(\d+)([A-Za-zÀ-ÿ\s'-]+?)(\d{2})(\d)/g;
-        let match;
-        
-        while ((match = scorerPattern.exec(scorersText)) !== null && scorers.length < 5) {
-          const [, , playerName, matchesPlayed, goalsScored] = match;
-          const parsedMatches = parseInt(matchesPlayed);
-          const parsedGoals = parseInt(goalsScored);
-          
-          scorers.push({
-            id: scorers.length + 1,
-            name: playerName.trim(),
-            goals: parsedGoals,
-            matches: parsedMatches,
-            goalsPerMatch: parsedMatches > 0 ? parsedGoals / parsedMatches : 0
-          });
-        }
-      } else {
-        console.log('❌ Could not find Top Scorers section in HTML');
-      }
-      
-      // Parse Top Assists
-      const assistsMatch = html.match(/Top AssistsRKNamePA(.*?)$/s);
-      const assists: PlayerAssist[] = [];
-      
-      if (assistsMatch && assistsMatch[1]) {
-        const assistsText = assistsMatch[1].substring(0, 200); // Limit to avoid parsing too much
-        console.log('Raw assists text:', assistsText.substring(0, 200));
-        
-        // Parse format: "1Granit Xhaka2252Enzo Le Fée234..."
-        // Pattern: rank + name + matches (2 digits) + assists (1 digit)
-        const assistPattern = /(\d+)([A-Za-zÀ-ÿ\s'-]+?)(\d{2})(\d)/g;
-        let match;
-        
-        while ((match = assistPattern.exec(assistsText)) !== null && assists.length < 5) {
-          const [, , playerName, matchesPlayed, assistsCount] = match;
-          const parsedMatches = parseInt(matchesPlayed);
-          const parsedAssists = parseInt(assistsCount);
-          
-          assists.push({
-            id: assists.length + 1,
-            name: playerName.trim(),
-            assists: parsedAssists,
-            matches: parsedMatches,
-            assistsPerMatch: parsedMatches > 0 ? parsedAssists / parsedMatches : 0
-          });
-        }
-      } else {
-        console.log('❌ Could not find Top Assists section in HTML');
-      }
-      
-      if (scorers.length > 0 || assists.length > 0) {
-        console.log('✅ Parsed ESPN scorers:', scorers);
-        console.log('✅ Parsed ESPN assists:', assists);
-        return { scorers, assists };
-      }
-      
-      console.log('⚠️ Could not parse ESPN data - HTML structure may have changed');
-      return { scorers: [], assists: [] };
-      
-    } catch (error) {
-      console.error('❌ Error fetching from ESPN:', error);
-      return { scorers: [], assists: [] };
-    }
-  }, []);
-
-  const STATS_CACHE_KEY = 'lastFetchedTeamStats';
-
-  const persistFetchedStats = useCallback(async (scorers: PlayerScorer[], assists: PlayerAssist[]) => {
-    try {
-      await AsyncStorage.setItem(
-        STATS_CACHE_KEY,
-        JSON.stringify({ scorers, assists, savedAt: Date.now() })
-      );
-    } catch (error) {
-      console.error('Error caching team stats:', error);
-    }
-  }, []);
-
-  const loadStaleStats = useCallback(async (): Promise<{ scorers: PlayerScorer[]; assists: PlayerAssist[] } | null> => {
-    try {
-      const cached = await AsyncStorage.getItem(STATS_CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed?.scorers?.length || parsed?.assists?.length) {
-          return { scorers: parsed.scorers || [], assists: parsed.assists || [] };
-        }
-      }
-    } catch (error) {
-      console.error('Error reading cached team stats:', error);
-    }
-
-    try {
-      const firestoreStats = await getTeamStats();
-      if (firestoreStats && (firestoreStats.scorers.length > 0 || firestoreStats.assists.length > 0)) {
-        return { scorers: firestoreStats.scorers, assists: firestoreStats.assists };
-      }
-    } catch (error) {
-      console.error('Error loading Firestore team stats:', error);
-    }
-
-    return null;
-  }, []);
-
-  // Fetch top scorers and assists from ESPN/API; keep last fetch if live sources fail
-  const fetchTopScorers = useCallback(async (sunderlandTeamId: number) => {
-    console.log('Fetching top scorers and assists for team ID:', sunderlandTeamId);
-
-    const staleStats = await loadStaleStats();
-    if (staleStats) {
-      console.log('Showing last fetched stats while refreshing');
-      setTopScorers(staleStats.scorers);
-      setTopAssists(staleStats.assists);
-    }
-
-    try {
-      const espnData = await fetchTopScorersFromESPN();
-      if (espnData.scorers.length > 0 || espnData.assists.length > 0) {
-        console.log('✅ Using ESPN data');
-        setTopScorers(espnData.scorers);
-        setTopAssists(espnData.assists);
-        await persistFetchedStats(espnData.scorers, espnData.assists);
-        return;
-      }
-    } catch (error) {
-      console.error('Error fetching top scorers from ESPN:', error);
-    }
-
-    try {
-      const currentYear = new Date().getFullYear();
-      const currentMonth = new Date().getMonth() + 1;
-      const seasonStartYear = currentMonth >= 8 ? currentYear : currentYear - 1;
-
-      console.log(`Fetching scorers from API for ${seasonStartYear}-${seasonStartYear + 1} season`);
-
-      const response = await axios.get(
-        `https://api.football-data.org/v4/competitions/2016/scorers`,
+      const upcomingResponse = await footballDataGet(
+        'competitions/PL/matches',
         {
           headers: {
             'X-Auth-Token': footballDataApiKey,
           },
           params: {
-            season: seasonStartYear,
-            limit: 15
-          }
-        }
-      );
+            status: 'SCHEDULED',
+            limit: 10,
+          },
+        },
+      )
 
-      if (response.data && response.data.scorers && response.data.scorers.length > 0) {
-        const sunderlandScorers = response.data.scorers
-          .filter((scorer: any) => scorer.team.id === sunderlandTeamId)
-          .map((scorer: any) => ({
-            id: scorer.player.id,
-            name: scorer.player.name,
-            goals: scorer.goals || 0,
-            matches: scorer.playedMatches || 0,
-            goalsPerMatch: scorer.playedMatches > 0 ? (scorer.goals / scorer.playedMatches) : 0
-          }));
-
-        console.log('Fetched Sunderland top scorers from API:', sunderlandScorers);
-
-        if (sunderlandScorers.length > 0) {
-          const assists = staleStats?.assists || [];
-          setTopScorers(sunderlandScorers);
-          setTopAssists(assists);
-          await persistFetchedStats(sunderlandScorers, assists);
-          return;
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching top scorers from API:', error);
-    }
-
-    if (staleStats) {
-      console.log('Live fetch failed, keeping last fetched stats');
-    } else {
-      console.log('No live or stale stats available');
-    }
-  }, [fetchTopScorersFromESPN, loadStaleStats, persistFetchedStats]);
-
-  // Calculate match statistics from fixtures data
-  const calculateMatchStatistics = useCallback((sunderlandTeamId: number): MatchStatistics => {
-    const allMatches = [...pastFixtures]; // Only use completed matches
-    const sunderlandMatches = allMatches.filter(match => 
-      (match.homeTeam.id === sunderlandTeamId || match.awayTeam.id === sunderlandTeamId) &&
-      match.score?.fullTime?.home !== null && match.score?.fullTime?.away !== null
-    );
-
-    let wins = 0, draws = 0, losses = 0;
-    let goalsScored = 0, goalsConceded = 0, cleanSheets = 0;
-    let homeWins = 0, homeDraws = 0, homeLosses = 0, homeMatches = 0;
-    let awayWins = 0, awayDraws = 0, awayLosses = 0, awayMatches = 0;
-
-    sunderlandMatches.forEach(match => {
-      const isHome = match.homeTeam.id === sunderlandTeamId;
-      const sunderlandGoals = isHome ? match.score!.fullTime!.home! : match.score!.fullTime!.away!;
-      const opponentGoals = isHome ? match.score!.fullTime!.away! : match.score!.fullTime!.home!;
-
-      goalsScored += sunderlandGoals;
-      goalsConceded += opponentGoals;
-
-      if (opponentGoals === 0) cleanSheets++;
-
-      if (sunderlandGoals > opponentGoals) {
-        wins++;
-        if (isHome) { homeWins++; homeMatches++; }
-        else { awayWins++; awayMatches++; }
-      } else if (sunderlandGoals === opponentGoals) {
-        draws++;
-        if (isHome) { homeDraws++; homeMatches++; }
-        else { awayDraws++; awayMatches++; }
-      } else {
-        losses++;
-        if (isHome) { homeLosses++; homeMatches++; }
-        else { awayLosses++; awayMatches++; }
-      }
-    });
-
-    return {
-      totalMatches: sunderlandMatches.length,
-      wins,
-      draws,
-      losses,
-      goalsScored,
-      goalsConceded,
-      cleanSheets,
-      homeRecord: {
-        matches: homeMatches,
-        wins: homeWins,
-        draws: homeDraws,
-        losses: homeLosses,
-      },
-      awayRecord: {
-        matches: awayMatches,
-        wins: awayWins,
-        draws: awayDraws,
-        losses: awayLosses,
-      },
-    };
-  }, [pastFixtures]);
-
-  // Fetch team statistics
-  const fetchTeamStatistics = useCallback(async () => {
-    setStatsLoading(true);
-    try {
-      // Get Sunderland team ID from fixtures data
-      let sunderlandTeamId = null;
-      
-      // Try to find Sunderland team ID from existing fixtures
-      if (fixtures.length > 0) {
-        const sunderlandMatch = fixtures.find(match => 
-          match.homeTeam.name.includes('Sunderland') || match.awayTeam.name.includes('Sunderland')
-        );
-        if (sunderlandMatch) {
-          sunderlandTeamId = sunderlandMatch.homeTeam.name.includes('Sunderland') 
-            ? sunderlandMatch.homeTeam.id 
-            : sunderlandMatch.awayTeam.id;
-        }
-      }
-      
-      // If not found in upcoming, try past fixtures
-      if (!sunderlandTeamId && pastFixtures.length > 0) {
-        const sunderlandMatch = pastFixtures.find(match => 
-          match.homeTeam.name.includes('Sunderland') || match.awayTeam.name.includes('Sunderland')
-        );
-        if (sunderlandMatch) {
-          sunderlandTeamId = sunderlandMatch.homeTeam.name.includes('Sunderland') 
-            ? sunderlandMatch.homeTeam.id 
-            : sunderlandMatch.awayTeam.id;
-        }
-      }
-      
-      if (!sunderlandTeamId) {
-        setError('Could not find Sunderland team ID');
-        return;
-      }
-
-      console.log('Found Sunderland team ID:', sunderlandTeamId);
-      console.log('Fetching team stats for:', sunderlandTeamId);
-      
-      const response = await axios.get(`https://api.football-data.org/v4/teams/${sunderlandTeamId}`, {
+      const pastResponse = await footballDataGet('competitions/PL/matches', {
         headers: {
           'X-Auth-Token': footballDataApiKey,
         },
-      });
+        params: {
+          status: 'FINISHED',
+          limit: 10,
+        },
+      })
 
-      setTeamStats(response.data);
-      
+      // console.log('Upcoming Matches Raw Response:', JSON.stringify(upcomingResponse.data, null, 2));
+      // console.log('Past Matches Raw Response:', JSON.stringify(pastResponse.data, null, 2));
+
+      // Filter for Sunderland matches
+      const sunderlandUpcomingFixtures = upcomingResponse.data.matches.filter(
+        (match: FixtureMatch) =>
+          match.homeTeam.name.includes('Sunderland') ||
+          match.awayTeam.name.includes('Sunderland'),
+      )
+
+      const sunderlandPastFixtures = pastResponse.data.matches
+        .filter(
+          (match: FixtureMatch) =>
+            match.homeTeam.name.includes('Sunderland') ||
+            match.awayTeam.name.includes('Sunderland'),
+        )
+        .sort(
+          (a: FixtureMatch, b: FixtureMatch) =>
+            new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime(),
+        )
+
+      // console.log('Upcoming Fixtures:', sunderlandUpcomingFixtures.length);
+      // console.log('Past Fixtures:', sunderlandPastFixtures.length);
+
+      // Ensure we have data
+      if (
+        sunderlandUpcomingFixtures.length === 0 &&
+        sunderlandPastFixtures.length === 0
+      ) {
+        setError('No Sunderland fixtures found')
+      }
+
+      setFixtures(sunderlandUpcomingFixtures)
+      setPastFixtures(sunderlandPastFixtures)
+
+      // Fetch form for next match
+      if (sunderlandUpcomingFixtures.length > 0) {
+        const nextMatch = sunderlandUpcomingFixtures[0]
+        await fetchTeamsForm(nextMatch.homeTeam.id, nextMatch.awayTeam.id)
+      }
+
+      setLoading(false)
+    } catch (err) {
+      console.error('Full Error Object:', err)
+      console.error('Error Response:', (err as any).response?.data)
+
+      let errorMessage = 'Failed to fetch match fixtures'
+      if (axios.isAxiosError(err)) {
+        if (err.response) {
+          // The request was made and the server responded with a status code
+          errorMessage = `API Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+        } else if (err.request) {
+          // The request was made but no response was received
+          errorMessage = 'No response received from server'
+        }
+      }
+
+      setError(errorMessage)
+      setLoading(false)
+    }
+  }, [])
+
+  const fetchTeamsForm = async (homeTeamId: number, awayTeamId: number) => {
+    try {
+      // Fetch last matches for both teams
+      const [homeTeamMatches, awayTeamMatches] = await Promise.all([
+        footballDataGet(`teams/${homeTeamId}/matches`, {
+          headers: { 'X-Auth-Token': footballDataApiKey },
+          params: { status: 'FINISHED', limit: 5 },
+        }),
+        footballDataGet(`teams/${awayTeamId}/matches`, {
+          headers: { 'X-Auth-Token': footballDataApiKey },
+          params: { status: 'FINISHED', limit: 5 },
+        }),
+      ])
+
+      const homeForm = homeTeamMatches.data.matches.map(
+        (match: FixtureMatch) => {
+          const isHome = match.homeTeam.id === homeTeamId
+          const teamScore = isHome
+            ? match.score?.fullTime?.home
+            : match.score?.fullTime?.away
+          const opponentScore = isHome
+            ? match.score?.fullTime?.away
+            : match.score?.fullTime?.home
+
+          if (
+            teamScore === null ||
+            teamScore === undefined ||
+            opponentScore === null ||
+            opponentScore === undefined
+          )
+            return 'U'
+          if (teamScore > opponentScore) return 'W'
+          if (teamScore < opponentScore) return 'L'
+          return 'D'
+        },
+      )
+
+      const awayForm = awayTeamMatches.data.matches.map(
+        (match: FixtureMatch) => {
+          const isHome = match.homeTeam.id === awayTeamId
+          const teamScore = isHome
+            ? match.score?.fullTime?.home
+            : match.score?.fullTime?.away
+          const opponentScore = isHome
+            ? match.score?.fullTime?.away
+            : match.score?.fullTime?.home
+
+          if (
+            teamScore === null ||
+            teamScore === undefined ||
+            opponentScore === null ||
+            opponentScore === undefined
+          )
+            return 'U'
+          if (teamScore > opponentScore) return 'W'
+          if (teamScore < opponentScore) return 'L'
+          return 'D'
+        },
+      )
+
+      setNextMatchForm({
+        homeTeam: homeForm,
+        awayTeam: awayForm,
+      })
+    } catch (err) {
+      console.error('Error fetching teams form:', err)
+    }
+  }
+
+  // Fetch top scorers and assists from ESPN (scraping)
+  const fetchTopScorersFromESPN = useCallback(async (): Promise<{
+    scorers: PlayerScorer[]
+    assists: PlayerAssist[]
+  }> => {
+    try {
+      console.log('Fetching top scorers and assists from ESPN...')
+
+      // Fetch the ESPN stats page
+      const response = await axios.get(
+        'https://www.espn.co.uk/football/team/stats/_/id/366/sunderland',
+        {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+        },
+      )
+
+      const html = response.data
+
+      // Log a sample of the HTML to help debug
+      console.log('ESPN HTML sample (first 500 chars):', html.substring(0, 500))
+      console.log(
+        'Searching for "Top Scorers" in HTML:',
+        html.includes('Top Scorers'),
+      )
+      console.log(
+        'Searching for "Top Assists" in HTML:',
+        html.includes('Top Assists'),
+      )
+
+      // Parse Top Scorers
+      const scorersMatch = html.match(/Top ScorersRKNamePG(.*?)Top Assists/s)
+      const scorers: PlayerScorer[] = []
+
+      if (scorersMatch && scorersMatch[1]) {
+        const scorersText = scorersMatch[1]
+        console.log('Raw scorers text:', scorersText.substring(0, 200))
+
+        // Parse format: "1Brian Brobbey1952Wilson Isidor214..."
+        // Pattern: rank + name + matches (2 digits) + goals (1 digit)
+        const scorerPattern = /(\d+)([A-Za-zÀ-ÿ\s'-]+?)(\d{2})(\d)/g
+        let match
+
+        while (
+          (match = scorerPattern.exec(scorersText)) !== null &&
+          scorers.length < 5
+        ) {
+          const [, , playerName, matchesPlayed, goalsScored] = match
+          const parsedMatches = parseInt(matchesPlayed)
+          const parsedGoals = parseInt(goalsScored)
+
+          scorers.push({
+            id: scorers.length + 1,
+            name: playerName.trim(),
+            goals: parsedGoals,
+            matches: parsedMatches,
+            goalsPerMatch: parsedMatches > 0 ? parsedGoals / parsedMatches : 0,
+          })
+        }
+      } else {
+        console.log('❌ Could not find Top Scorers section in HTML')
+      }
+
+      // Parse Top Assists
+      const assistsMatch = html.match(/Top AssistsRKNamePA(.*?)$/s)
+      const assists: PlayerAssist[] = []
+
+      if (assistsMatch && assistsMatch[1]) {
+        const assistsText = assistsMatch[1].substring(0, 200) // Limit to avoid parsing too much
+        console.log('Raw assists text:', assistsText.substring(0, 200))
+
+        // Parse format: "1Granit Xhaka2252Enzo Le Fée234..."
+        // Pattern: rank + name + matches (2 digits) + assists (1 digit)
+        const assistPattern = /(\d+)([A-Za-zÀ-ÿ\s'-]+?)(\d{2})(\d)/g
+        let match
+
+        while (
+          (match = assistPattern.exec(assistsText)) !== null &&
+          assists.length < 5
+        ) {
+          const [, , playerName, matchesPlayed, assistsCount] = match
+          const parsedMatches = parseInt(matchesPlayed)
+          const parsedAssists = parseInt(assistsCount)
+
+          assists.push({
+            id: assists.length + 1,
+            name: playerName.trim(),
+            assists: parsedAssists,
+            matches: parsedMatches,
+            assistsPerMatch:
+              parsedMatches > 0 ? parsedAssists / parsedMatches : 0,
+          })
+        }
+      } else {
+        console.log('❌ Could not find Top Assists section in HTML')
+      }
+
+      if (scorers.length > 0 || assists.length > 0) {
+        console.log('✅ Parsed ESPN scorers:', scorers)
+        console.log('✅ Parsed ESPN assists:', assists)
+        return { scorers, assists }
+      }
+
+      console.log(
+        '⚠️ Could not parse ESPN data - HTML structure may have changed',
+      )
+      return { scorers: [], assists: [] }
+    } catch (error) {
+      console.error('❌ Error fetching from ESPN:', error)
+      return { scorers: [], assists: [] }
+    }
+  }, [])
+
+  const STATS_CACHE_KEY = 'lastFetchedTeamStats'
+
+  const persistFetchedStats = useCallback(
+    async (scorers: PlayerScorer[], assists: PlayerAssist[]) => {
+      try {
+        await AsyncStorage.setItem(
+          STATS_CACHE_KEY,
+          JSON.stringify({ scorers, assists, savedAt: Date.now() }),
+        )
+      } catch (error) {
+        console.error('Error caching team stats:', error)
+      }
+    },
+    [],
+  )
+
+  const loadStaleStats = useCallback(async (): Promise<{
+    scorers: PlayerScorer[]
+    assists: PlayerAssist[]
+  } | null> => {
+    try {
+      const cached = await AsyncStorage.getItem(STATS_CACHE_KEY)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed?.scorers?.length || parsed?.assists?.length) {
+          return {
+            scorers: parsed.scorers || [],
+            assists: parsed.assists || [],
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error reading cached team stats:', error)
+    }
+
+    try {
+      const firestoreStats = await getTeamStats()
+      if (
+        firestoreStats &&
+        (firestoreStats.scorers.length > 0 || firestoreStats.assists.length > 0)
+      ) {
+        return {
+          scorers: firestoreStats.scorers,
+          assists: firestoreStats.assists,
+        }
+      }
+    } catch (error) {
+      console.error('Error loading Firestore team stats:', error)
+    }
+
+    return null
+  }, [])
+
+  // Fetch top scorers and assists from ESPN/API; keep last fetch if live sources fail
+  const fetchTopScorers = useCallback(
+    async (sunderlandTeamId: number) => {
+      console.log(
+        'Fetching top scorers and assists for team ID:',
+        sunderlandTeamId,
+      )
+
+      const staleStats = await loadStaleStats()
+      if (staleStats) {
+        console.log('Showing last fetched stats while refreshing')
+        setTopScorers(staleStats.scorers)
+        setTopAssists(staleStats.assists)
+      }
+
+      try {
+        const espnData = await fetchTopScorersFromESPN()
+        if (espnData.scorers.length > 0 || espnData.assists.length > 0) {
+          console.log('✅ Using ESPN data')
+          setTopScorers(espnData.scorers)
+          setTopAssists(espnData.assists)
+          await persistFetchedStats(espnData.scorers, espnData.assists)
+          return
+        }
+      } catch (error) {
+        console.error('Error fetching top scorers from ESPN:', error)
+      }
+
+      try {
+        const currentYear = new Date().getFullYear()
+        const currentMonth = new Date().getMonth() + 1
+        const seasonStartYear =
+          currentMonth >= 8 ? currentYear : currentYear - 1
+
+        console.log(
+          `Fetching scorers from API for ${seasonStartYear}-${seasonStartYear + 1} season`,
+        )
+
+        const response = await footballDataGet(`competitions/2016/scorers`, {
+          headers: {
+            'X-Auth-Token': footballDataApiKey,
+          },
+          params: {
+            season: seasonStartYear,
+            limit: 15,
+          },
+        })
+
+        if (
+          response.data &&
+          response.data.scorers &&
+          response.data.scorers.length > 0
+        ) {
+          const sunderlandScorers = response.data.scorers
+            .filter((scorer: any) => scorer.team.id === sunderlandTeamId)
+            .map((scorer: any) => ({
+              id: scorer.player.id,
+              name: scorer.player.name,
+              goals: scorer.goals || 0,
+              matches: scorer.playedMatches || 0,
+              goalsPerMatch:
+                scorer.playedMatches > 0
+                  ? scorer.goals / scorer.playedMatches
+                  : 0,
+            }))
+
+          console.log(
+            'Fetched Sunderland top scorers from API:',
+            sunderlandScorers,
+          )
+
+          if (sunderlandScorers.length > 0) {
+            const assists = staleStats?.assists || []
+            setTopScorers(sunderlandScorers)
+            setTopAssists(assists)
+            await persistFetchedStats(sunderlandScorers, assists)
+            return
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching top scorers from API:', error)
+      }
+
+      if (staleStats) {
+        console.log('Live fetch failed, keeping last fetched stats')
+      } else {
+        console.log('No live or stale stats available')
+      }
+    },
+    [fetchTopScorersFromESPN, loadStaleStats, persistFetchedStats],
+  )
+
+  // Calculate match statistics from fixtures data
+  const calculateMatchStatistics = useCallback(
+    (sunderlandTeamId: number): MatchStatistics => {
+      const allMatches = [...pastFixtures] // Only use completed matches
+      const sunderlandMatches = allMatches.filter(
+        match =>
+          (match.homeTeam.id === sunderlandTeamId ||
+            match.awayTeam.id === sunderlandTeamId) &&
+          match.score?.fullTime?.home !== null &&
+          match.score?.fullTime?.away !== null,
+      )
+
+      let wins = 0,
+        draws = 0,
+        losses = 0
+      let goalsScored = 0,
+        goalsConceded = 0,
+        cleanSheets = 0
+      let homeWins = 0,
+        homeDraws = 0,
+        homeLosses = 0,
+        homeMatches = 0
+      let awayWins = 0,
+        awayDraws = 0,
+        awayLosses = 0,
+        awayMatches = 0
+
+      sunderlandMatches.forEach(match => {
+        const isHome = match.homeTeam.id === sunderlandTeamId
+        const sunderlandGoals = isHome
+          ? match.score!.fullTime!.home!
+          : match.score!.fullTime!.away!
+        const opponentGoals = isHome
+          ? match.score!.fullTime!.away!
+          : match.score!.fullTime!.home!
+
+        goalsScored += sunderlandGoals
+        goalsConceded += opponentGoals
+
+        if (opponentGoals === 0) cleanSheets++
+
+        if (sunderlandGoals > opponentGoals) {
+          wins++
+          if (isHome) {
+            homeWins++
+            homeMatches++
+          } else {
+            awayWins++
+            awayMatches++
+          }
+        } else if (sunderlandGoals === opponentGoals) {
+          draws++
+          if (isHome) {
+            homeDraws++
+            homeMatches++
+          } else {
+            awayDraws++
+            awayMatches++
+          }
+        } else {
+          losses++
+          if (isHome) {
+            homeLosses++
+            homeMatches++
+          } else {
+            awayLosses++
+            awayMatches++
+          }
+        }
+      })
+
+      return {
+        totalMatches: sunderlandMatches.length,
+        wins,
+        draws,
+        losses,
+        goalsScored,
+        goalsConceded,
+        cleanSheets,
+        homeRecord: {
+          matches: homeMatches,
+          wins: homeWins,
+          draws: homeDraws,
+          losses: homeLosses,
+        },
+        awayRecord: {
+          matches: awayMatches,
+          wins: awayWins,
+          draws: awayDraws,
+          losses: awayLosses,
+        },
+      }
+    },
+    [pastFixtures],
+  )
+
+  // Fetch team statistics
+  const fetchTeamStatistics = useCallback(async () => {
+    setStatsLoading(true)
+    try {
+      // Get Sunderland team ID from fixtures data
+      let sunderlandTeamId = null
+
+      // Try to find Sunderland team ID from existing fixtures
+      if (fixtures.length > 0) {
+        const sunderlandMatch = fixtures.find(
+          match =>
+            match.homeTeam.name.includes('Sunderland') ||
+            match.awayTeam.name.includes('Sunderland'),
+        )
+        if (sunderlandMatch) {
+          sunderlandTeamId = sunderlandMatch.homeTeam.name.includes(
+            'Sunderland',
+          )
+            ? sunderlandMatch.homeTeam.id
+            : sunderlandMatch.awayTeam.id
+        }
+      }
+
+      // If not found in upcoming, try past fixtures
+      if (!sunderlandTeamId && pastFixtures.length > 0) {
+        const sunderlandMatch = pastFixtures.find(
+          match =>
+            match.homeTeam.name.includes('Sunderland') ||
+            match.awayTeam.name.includes('Sunderland'),
+        )
+        if (sunderlandMatch) {
+          sunderlandTeamId = sunderlandMatch.homeTeam.name.includes(
+            'Sunderland',
+          )
+            ? sunderlandMatch.homeTeam.id
+            : sunderlandMatch.awayTeam.id
+        }
+      }
+
+      if (!sunderlandTeamId) {
+        setError('Could not find Sunderland team ID')
+        return
+      }
+
+      console.log('Found Sunderland team ID:', sunderlandTeamId)
+      console.log('Fetching team stats for:', sunderlandTeamId)
+
+      const response = await footballDataGet(`teams/${sunderlandTeamId}`, {
+        headers: {
+          'X-Auth-Token': footballDataApiKey,
+        },
+      })
+
+      setTeamStats(response.data)
+
       // Calculate match statistics from fixtures data
-      const matchStatistics = calculateMatchStatistics(sunderlandTeamId);
-      setMatchStats(matchStatistics);
-      console.log('Match Statistics:', matchStatistics);
+      const matchStatistics = calculateMatchStatistics(sunderlandTeamId)
+      setMatchStats(matchStatistics)
+      console.log('Match Statistics:', matchStatistics)
 
       // Fetch top scorers data
-      await fetchTopScorers(sunderlandTeamId);
+      await fetchTopScorers(sunderlandTeamId)
     } catch (err) {
-      console.error('Error fetching team statistics:', err);
-      let errorMessage = 'Failed to fetch team statistics';
-      setError(errorMessage);
+      console.error('Error fetching team statistics:', err)
+      let errorMessage = 'Failed to fetch team statistics'
+      setError(errorMessage)
     } finally {
-      setStatsLoading(false);
+      setStatsLoading(false)
     }
-  }, [fixtures, pastFixtures, calculateMatchStatistics, fetchTopScorers]);
+  }, [fixtures, pastFixtures, calculateMatchStatistics, fetchTopScorers])
 
   // Load saved reminders
   useEffect(() => {
     const loadReminders = async () => {
       try {
-        const saved = await AsyncStorage.getItem('matchReminders');
+        const saved = await AsyncStorage.getItem('matchReminders')
         if (saved) {
-          setMatchReminders(JSON.parse(saved));
+          setMatchReminders(JSON.parse(saved))
         }
       } catch (error) {
-        console.error('Error loading reminders:', error);
+        console.error('Error loading reminders:', error)
       }
-    };
-    loadReminders();
-  }, []);
+    }
+    loadReminders()
+  }, [])
 
   const scheduleMatchReminder = async (match: FixtureMatch) => {
     try {
       // Request permissions
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync()
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please enable notifications to set reminders.');
-        return;
+        Alert.alert(
+          'Permission Required',
+          'Please enable notifications to set reminders.',
+        )
+        return
       }
 
-      const matchDate = new Date(match.utcDate);
-      const now = new Date();
+      const matchDate = new Date(match.utcDate)
+      const now = new Date()
 
       // Check if match is in the past
       if (matchDate <= now) {
-        Alert.alert('Invalid Time', 'Cannot set reminder for past matches.');
-        return;
+        Alert.alert('Invalid Time', 'Cannot set reminder for past matches.')
+        return
       }
 
       // Schedule notification 1 hour before match
-      const reminderTime = new Date(matchDate.getTime() - 60 * 60 * 1000);
+      const reminderTime = new Date(matchDate.getTime() - 60 * 60 * 1000)
 
       // Check if reminder time is in the past (match is less than 1 hour away)
       if (reminderTime <= now) {
         Alert.alert(
           'Match Too Soon',
-          'This match starts in less than 1 hour. You can set reminders for future matches.'
-        );
-        return;
+          'This match starts in less than 1 hour. You can set reminders for future matches.',
+        )
+        return
       }
 
-      console.log('Current time:', now);
-      console.log('Match date:', matchDate);
-      console.log('Reminder time (1h before match):', reminderTime);
+      console.log('Current time:', now)
+      console.log('Match date:', matchDate)
+      console.log('Reminder time (1h before match):', reminderTime)
 
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
@@ -714,111 +852,122 @@ export default function FixturesScreen(): React.ReactElement {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: reminderTime,
         },
-      });
-      console.log('Scheduled match reminder:', notificationId, reminderTime);
+      })
+      console.log('Scheduled match reminder:', notificationId, reminderTime)
 
       // Save reminder
-      const newReminders = { ...matchReminders, [match.id]: notificationId };
-      setMatchReminders(newReminders);
-      await AsyncStorage.setItem('matchReminders', JSON.stringify(newReminders));
+      const newReminders = { ...matchReminders, [match.id]: notificationId }
+      setMatchReminders(newReminders)
+      await AsyncStorage.setItem('matchReminders', JSON.stringify(newReminders))
 
       // Show confirmation alert (this is NOT a push notification)
       const matchDateStr = matchDate.toLocaleDateString('en-GB', {
         day: 'numeric',
         month: 'short',
-        year: 'numeric'
-      });
+        year: 'numeric',
+      })
       const matchTimeStr = matchDate.toLocaleTimeString('en-GB', {
         hour: '2-digit',
-        minute: '2-digit'
-      });
+        minute: '2-digit',
+      })
 
       const reminderDateStr = reminderTime.toLocaleDateString('en-GB', {
         day: 'numeric',
         month: 'short',
-        year: 'numeric'
-      });
+        year: 'numeric',
+      })
       const reminderTimeStr = reminderTime.toLocaleTimeString('en-GB', {
         hour: '2-digit',
-        minute: '2-digit'
-      });
+        minute: '2-digit',
+      })
 
       Alert.alert(
         '🔔 Reminder Set!',
-        `You'll receive a notification 1 hour before kickoff.\n\n📅 Match: ${matchDateStr} at ${matchTimeStr}\n⏰ Reminder: ${reminderDateStr} at ${reminderTimeStr}\n\n${match.homeTeam.name} vs ${match.awayTeam.name}`
-      );
+        `You'll receive a notification 1 hour before kickoff.\n\n📅 Match: ${matchDateStr} at ${matchTimeStr}\n⏰ Reminder: ${reminderDateStr} at ${reminderTimeStr}\n\n${match.homeTeam.name} vs ${match.awayTeam.name}`,
+      )
 
-      console.log('Notification scheduled for:', reminderTime);
+      console.log('Notification scheduled for:', reminderTime)
     } catch (error) {
-      console.error('Error scheduling reminder:', error);
-      Alert.alert('Error', 'Failed to set reminder. Please try again.');
+      console.error('Error scheduling reminder:', error)
+      Alert.alert('Error', 'Failed to set reminder. Please try again.')
     }
-  };
+  }
 
   const cancelMatchReminder = async (matchId: number) => {
     try {
-      const notificationId = matchReminders[matchId];
+      const notificationId = matchReminders[matchId]
       if (notificationId) {
         if (!notificationId.startsWith('disabled_')) {
-          await Notifications.cancelScheduledNotificationAsync(notificationId);
+          await Notifications.cancelScheduledNotificationAsync(notificationId)
         }
-        
-        const newReminders = { ...matchReminders };
-        delete newReminders[matchId];
-        setMatchReminders(newReminders);
-        await AsyncStorage.setItem('matchReminders', JSON.stringify(newReminders));
 
-        Alert.alert('Reminder Cancelled', 'Match reminder has been removed.');
+        const newReminders = { ...matchReminders }
+        delete newReminders[matchId]
+        setMatchReminders(newReminders)
+        await AsyncStorage.setItem(
+          'matchReminders',
+          JSON.stringify(newReminders),
+        )
+
+        Alert.alert('Reminder Cancelled', 'Match reminder has been removed.')
       }
     } catch (error) {
-      console.error('Error cancelling reminder:', error);
-      Alert.alert('Error', 'Failed to cancel reminder.');
+      console.error('Error cancelling reminder:', error)
+      Alert.alert('Error', 'Failed to cancel reminder.')
     }
-  };
+  }
 
   const toggleReminder = (match: FixtureMatch) => {
     if (matchReminders[match.id]) {
-      cancelMatchReminder(match.id);
+      cancelMatchReminder(match.id)
     } else {
-      scheduleMatchReminder(match);
+      scheduleMatchReminder(match)
     }
-  };
+  }
 
-  const fetchMatchDetails = async (matchId: number): Promise<FixtureMatch | undefined> => {
+  const fetchMatchDetails = async (
+    matchId: number,
+  ): Promise<FixtureMatch | undefined> => {
     try {
-      const response = await axios.get(`https://api.football-data.org/v4/matches/${matchId}`, {
+      const response = await footballDataGet(`matches/${matchId}`, {
         headers: {
-          'X-Auth-Token': footballDataApiKey
+          'X-Auth-Token': footballDataApiKey,
         },
         params: {
-          head2head: 10 // Fetch last 10 head-to-head matches
-        }
-      });
-      return response.data;
+          head2head: 10, // Fetch last 10 head-to-head matches
+        },
+      })
+      return response.data
     } catch (err) {
-      console.error('Error fetching match details:', err);
-      return undefined;
+      console.error('Error fetching match details:', err)
+      return undefined
     }
-  };
+  }
 
   const openMatchDetails = async (match: FixtureMatch) => {
     try {
       // Fetch additional match details for finished matches
       if (match.status === 'FINISHED') {
-        const detailedMatch = await fetchMatchDetails(match.id);
-        setSelectedMatch(detailedMatch || match);
+        const detailedMatch = await fetchMatchDetails(match.id)
+        setSelectedMatch(detailedMatch || match)
       } else {
-        setSelectedMatch(match);
+        setSelectedMatch(match)
       }
-      setMatchDetailsModalVisible(true);
+      setMatchDetailsModalVisible(true)
     } catch (err) {
-      console.error('Error opening match details:', err);
+      console.error('Error opening match details:', err)
     }
-  };
+  }
 
-  const renderFixtureItem = ({ item, isPast }: { item: FixtureMatch, isPast?: boolean }) => {
-    const hasReminder = matchReminders[item.id];
-    
+  const renderFixtureItem = ({
+    item,
+    isPast,
+  }: {
+    item: FixtureMatch
+    isPast?: boolean
+  }) => {
+    const hasReminder = matchReminders[item.id]
+
     return (
       <View style={styles.fixtureItem}>
         <View style={styles.dateContainer}>
@@ -838,20 +987,19 @@ export default function FixturesScreen(): React.ReactElement {
         </View>
         <View style={styles.matchContainer}>
           <View style={styles.teamContainer}>
-            <Image 
-              source={{ uri: item.homeTeam.crest }} 
-              style={styles.teamLogo} 
-              resizeMode="contain"
+            <Image
+              source={{ uri: item.homeTeam.crest }}
+              style={styles.teamLogo}
+              resizeMode='contain'
             />
-            <Text style={styles.teamName}>
-              {item.homeTeam.name}
-            </Text>
+            <Text style={styles.teamName}>{item.homeTeam.name}</Text>
           </View>
           <View style={styles.vsContainer}>
             {isPast ? (
               <View style={styles.scoreContainer}>
                 <Text style={styles.scoreText}>
-                  {item.score?.fullTime?.home ?? '-'} - {item.score?.fullTime?.away ?? '-'}
+                  {item.score?.fullTime?.home ?? '-'} -{' '}
+                  {item.score?.fullTime?.away ?? '-'}
                 </Text>
               </View>
             ) : (
@@ -859,72 +1007,76 @@ export default function FixturesScreen(): React.ReactElement {
             )}
           </View>
           <View style={styles.teamContainer}>
-            <Image 
-              source={{ uri: item.awayTeam.crest }} 
-              style={styles.teamLogo} 
-              resizeMode="contain"
+            <Image
+              source={{ uri: item.awayTeam.crest }}
+              style={styles.teamLogo}
+              resizeMode='contain'
             />
-            <Text style={styles.teamName}>
-              {item.awayTeam.name}
-            </Text>
+            <Text style={styles.teamName}>{item.awayTeam.name}</Text>
           </View>
         </View>
         <View style={styles.statusContainer}>
           <Text style={styles.statusText}>{item.status}</Text>
         </View>
       </View>
-    );
-  };
+    )
+  }
 
-  const handleTabChange = useCallback((tab: 'upcoming' | 'past' | 'stats') => {
-    console.log(`Tab change initiated: ${tab}`);
-    if (isTabChanging) return;
+  const handleTabChange = useCallback(
+    (tab: 'upcoming' | 'past' | 'stats') => {
+      console.log(`Tab change initiated: ${tab}`)
+      if (isTabChanging) return
 
-    setIsTabChanging(true);
-    
-    // Use setTimeout to prevent rapid successive calls
-    const timeoutId = setTimeout(() => {
-      console.log(`Tab change completed: ${tab}`);
-      setActiveTab(tab);
-      setIsTabChanging(false);
-    }, Platform.OS === 'android' ? 200 : 0);
+      setIsTabChanging(true)
 
-    // Cleanup function to clear timeout
-    return () => clearTimeout(timeoutId);
-  }, [isTabChanging]);
+      // Use setTimeout to prevent rapid successive calls
+      const timeoutId = setTimeout(
+        () => {
+          console.log(`Tab change completed: ${tab}`)
+          setActiveTab(tab)
+          setIsTabChanging(false)
+        },
+        Platform.OS === 'android' ? 200 : 0,
+      )
+
+      // Cleanup function to clear timeout
+      return () => clearTimeout(timeoutId)
+    },
+    [isTabChanging],
+  )
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = new Date(dateString)
     return date.toLocaleDateString('en-GB', {
       day: 'numeric',
       month: 'short',
-      year: 'numeric'
-    });
-  };
+      year: 'numeric',
+    })
+  }
 
   const renderFormBadge = (result: string) => {
-    let backgroundColor = '#ccc';
-    if (result === 'W') backgroundColor = '#4CAF50';
-    if (result === 'L') backgroundColor = '#f44336';
-    if (result === 'D') backgroundColor = '#FF9800';
+    let backgroundColor = '#ccc'
+    if (result === 'W') backgroundColor = '#4CAF50'
+    if (result === 'L') backgroundColor = '#f44336'
+    if (result === 'D') backgroundColor = '#FF9800'
 
     return (
       <View key={Math.random()} style={[styles.formBadge, { backgroundColor }]}>
         <Text style={styles.formBadgeText}>{result}</Text>
       </View>
-    );
-  };
+    )
+  }
 
   const renderNextMatchCountdown = () => {
-    if (fixtures.length === 0 || activeTab !== 'upcoming') return null;
+    if (fixtures.length === 0 || activeTab !== 'upcoming') return null
 
-    const nextMatch = fixtures[0];
-    const hasReminder = matchReminders[nextMatch.id];
-    
+    const nextMatch = fixtures[0]
+    const hasReminder = matchReminders[nextMatch.id]
+
     return (
       <View style={styles.countdownContainer}>
         <View style={styles.countdownHeader}>
-          <Ionicons name="time-outline" size={24} color="#e21d38" />
+          <Ionicons name='time-outline' size={24} color='#e21d38' />
           <Text style={styles.countdownTitle}>Next Match</Text>
           <TouchableOpacity
             style={styles.countdownReminderButton}
@@ -940,44 +1092,48 @@ export default function FixturesScreen(): React.ReactElement {
         <View style={styles.countdownMatchInfo}>
           <View style={styles.countdownTeams}>
             <View style={styles.countdownTeamColumn}>
-              <Image source={{ uri: nextMatch.homeTeam.crest }} style={styles.countdownLogo} />
+              <Image
+                source={{ uri: nextMatch.homeTeam.crest }}
+                style={styles.countdownLogo}
+              />
               {nextMatchForm && nextMatchForm.homeTeam.length > 0 && (
                 <View style={styles.teamFormBadges}>
                   {nextMatchForm.homeTeam.map((result, index) => (
-                    <View key={index}>
-                      {renderFormBadge(result)}
-                    </View>
+                    <View key={index}>{renderFormBadge(result)}</View>
                   ))}
                 </View>
               )}
             </View>
             <Text style={styles.countdownVs}>vs</Text>
             <View style={styles.countdownTeamColumn}>
-              <Image source={{ uri: nextMatch.awayTeam.crest }} style={styles.countdownLogo} />
+              <Image
+                source={{ uri: nextMatch.awayTeam.crest }}
+                style={styles.countdownLogo}
+              />
               {nextMatchForm && nextMatchForm.awayTeam.length > 0 && (
                 <View style={styles.teamFormBadges}>
                   {nextMatchForm.awayTeam.map((result, index) => (
-                    <View key={index}>
-                      {renderFormBadge(result)}
-                    </View>
+                    <View key={index}>{renderFormBadge(result)}</View>
                   ))}
                 </View>
               )}
             </View>
           </View>
           <Text style={styles.countdownTimer}>{nextMatchCountdown}</Text>
-          <Text style={styles.countdownDate}>{formatDate(nextMatch.utcDate)}</Text>
+          <Text style={styles.countdownDate}>
+            {formatDate(nextMatch.utcDate)}
+          </Text>
         </View>
       </View>
-    );
-  };
+    )
+  }
 
   const renderMatchDetailsModal = () => {
-    if (!selectedMatch) return null;
+    if (!selectedMatch) return null
 
     return (
       <Modal
-        animationType="slide"
+        animationType='slide'
         transparent={true}
         visible={matchDetailsModalVisible}
         onRequestClose={() => setMatchDetailsModalVisible(false)}
@@ -986,18 +1142,19 @@ export default function FixturesScreen(): React.ReactElement {
           <View style={styles.modalContainer}>
             <ScrollView style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Image 
-                  source={{ uri: selectedMatch.homeTeam.crest }} 
-                  style={styles.modalTeamLogo} 
-                  resizeMode="contain"
+                <Image
+                  source={{ uri: selectedMatch.homeTeam.crest }}
+                  style={styles.modalTeamLogo}
+                  resizeMode='contain'
                 />
                 <Text style={styles.modalMatchScore}>
-                  {selectedMatch.score?.fullTime?.home ?? '-'} - {selectedMatch.score?.fullTime?.away ?? '-'}
+                  {selectedMatch.score?.fullTime?.home ?? '-'} -{' '}
+                  {selectedMatch.score?.fullTime?.away ?? '-'}
                 </Text>
-                <Image 
-                  source={{ uri: selectedMatch.awayTeam.crest }} 
-                  style={styles.modalTeamLogo} 
-                  resizeMode="contain"
+                <Image
+                  source={{ uri: selectedMatch.awayTeam.crest }}
+                  style={styles.modalTeamLogo}
+                  resizeMode='contain'
                 />
               </View>
               <Text style={styles.modalTeamNames}>
@@ -1007,17 +1164,22 @@ export default function FixturesScreen(): React.ReactElement {
                 <Text style={styles.matchDetailsTitle}>Match Details</Text>
                 <View style={styles.matchDetailRow}>
                   <Text style={styles.matchDetailLabel}>Date:</Text>
-                  <Text style={styles.matchDetailValue}>{formatDate(selectedMatch.utcDate)}</Text>
+                  <Text style={styles.matchDetailValue}>
+                    {formatDate(selectedMatch.utcDate)}
+                  </Text>
                 </View>
                 <View style={styles.matchDetailRow}>
                   <Text style={styles.matchDetailLabel}>Status:</Text>
-                  <Text style={styles.matchDetailValue}>{selectedMatch.status}</Text>
+                  <Text style={styles.matchDetailValue}>
+                    {selectedMatch.status}
+                  </Text>
                 </View>
                 {selectedMatch.score && (
                   <View style={styles.matchDetailRow}>
                     <Text style={styles.matchDetailLabel}>Score:</Text>
                     <Text style={styles.matchDetailValue}>
-                      {selectedMatch.score.fullTime.home} - {selectedMatch.score.fullTime.away}
+                      {selectedMatch.score.fullTime.home} -{' '}
+                      {selectedMatch.score.fullTime.away}
                     </Text>
                   </View>
                 )}
@@ -1026,28 +1188,33 @@ export default function FixturesScreen(): React.ReactElement {
           </View>
         </SafeAreaView>
       </Modal>
-    );
-  };
+    )
+  }
 
   useEffect(() => {
-    fetchFixtures();
-  }, [fetchFixtures]);
+    fetchFixtures()
+  }, [fetchFixtures])
 
   // Auto-fetch team stats when fixtures are loaded and stats tab is active
   useEffect(() => {
-    if (activeTab === 'stats' && !teamStats && !statsLoading && (fixtures.length > 0 || pastFixtures.length > 0)) {
-      fetchTeamStatistics();
+    if (
+      activeTab === 'stats' &&
+      !teamStats &&
+      !statsLoading &&
+      (fixtures.length > 0 || pastFixtures.length > 0)
+    ) {
+      fetchTeamStatistics()
     }
-  }, [activeTab, teamStats, statsLoading, fixtures.length, pastFixtures.length]);
+  }, [activeTab, teamStats, statsLoading, fixtures.length, pastFixtures.length])
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safeAreaContainer}>
         <View style={styles.container}>
-          <ActivityIndicator size="large" color="#e21d38" />
+          <ActivityIndicator size='large' color='#e21d38' />
         </View>
       </SafeAreaView>
-    );
+    )
   }
 
   if (error) {
@@ -1060,67 +1227,83 @@ export default function FixturesScreen(): React.ReactElement {
           </TouchableOpacity>
         </View>
       </SafeAreaView>
-    );
+    )
   }
 
-  const currentFixtures = activeTab === 'upcoming' ? fixtures : activeTab === 'past' ? pastFixtures : [];
+  const currentFixtures =
+    activeTab === 'upcoming'
+      ? fixtures
+      : activeTab === 'past'
+        ? pastFixtures
+        : []
   // Skip first match in upcoming tab since it's shown in the Next Match card
-  const listFixtures = activeTab === 'upcoming' && currentFixtures.length > 0 
-    ? currentFixtures.slice(1) 
-    : currentFixtures;
+  const listFixtures =
+    activeTab === 'upcoming' && currentFixtures.length > 0
+      ? currentFixtures.slice(1)
+      : currentFixtures
 
   return (
     <SafeAreaView style={styles.safeAreaContainer}>
       <View style={styles.container}>
         <View style={styles.tabContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.tabButton, 
-              activeTab === 'upcoming' && styles.activeTabButton
+              styles.tabButton,
+              activeTab === 'upcoming' && styles.activeTabButton,
             ]}
             onPress={() => handleTabChange('upcoming')}
             disabled={isTabChanging}
           >
-            <Text style={[
-              styles.tabButtonText, 
-              activeTab === 'upcoming' && styles.activeTabButtonText
-            ]}>
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === 'upcoming' && styles.activeTabButtonText,
+              ]}
+            >
               Upcoming
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.tabButton, 
-              activeTab === 'past' && styles.activeTabButton
+              styles.tabButton,
+              activeTab === 'past' && styles.activeTabButton,
             ]}
             onPress={() => handleTabChange('past')}
             disabled={isTabChanging}
           >
-            <Text style={[
-              styles.tabButtonText, 
-              activeTab === 'past' && styles.activeTabButtonText
-            ]}>
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === 'past' && styles.activeTabButtonText,
+              ]}
+            >
               Past
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.tabButton, 
-              activeTab === 'stats' && styles.activeTabButton
+              styles.tabButton,
+              activeTab === 'stats' && styles.activeTabButton,
             ]}
             onPress={() => {
-              handleTabChange('stats');
+              handleTabChange('stats')
               // Only fetch team stats if we have fixture data and haven't fetched stats yet
-              if (activeTab !== 'stats' && !teamStats && (fixtures.length > 0 || pastFixtures.length > 0)) {
-                fetchTeamStatistics();
+              if (
+                activeTab !== 'stats' &&
+                !teamStats &&
+                (fixtures.length > 0 || pastFixtures.length > 0)
+              ) {
+                fetchTeamStatistics()
               }
             }}
             disabled={isTabChanging}
           >
-            <Text style={[
-              styles.tabButtonText, 
-              activeTab === 'stats' && styles.activeTabButtonText
-            ]}>
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === 'stats' && styles.activeTabButtonText,
+              ]}
+            >
               Stats
             </Text>
           </TouchableOpacity>
@@ -1129,33 +1312,50 @@ export default function FixturesScreen(): React.ReactElement {
         {activeTab === 'stats' ? (
           statsLoading ? (
             <View style={styles.noDataContainer}>
-              <ActivityIndicator size="large" color="#e21d38" />
+              <ActivityIndicator size='large' color='#e21d38' />
               <Text style={styles.noDataText}>Loading team statistics...</Text>
             </View>
           ) : teamStats ? (
-            <ScrollView style={styles.statsContainer} contentContainerStyle={styles.statsContent}>
+            <ScrollView
+              style={styles.statsContainer}
+              contentContainerStyle={styles.statsContent}
+            >
               {/* Team Header */}
               <View style={styles.teamHeader}>
-                <Image source={{ uri: teamStats.crest }} style={styles.teamCrest} />
+                <Image
+                  source={{ uri: teamStats.crest }}
+                  style={styles.teamCrest}
+                />
                 <View style={styles.teamInfo}>
                   <Text style={styles.statsTeamName}>{teamStats.name}</Text>
-                  <Text style={styles.teamDetails}>Founded: {teamStats.founded}</Text>
-                  <Text style={styles.teamDetails}>Venue: {teamStats.venue}</Text>
+                  <Text style={styles.teamDetails}>
+                    Founded: {teamStats.founded}
+                  </Text>
+                  <Text style={styles.teamDetails}>
+                    Venue: {teamStats.venue}
+                  </Text>
                 </View>
               </View>
 
               {/* Competitions */}
               <View style={styles.statsSection}>
                 <View style={styles.sectionHeader}>
-                  <Ionicons name="trophy-outline" size={24} color="#e21d38" />
+                  <Ionicons name='trophy-outline' size={24} color='#e21d38' />
                   <Text style={styles.sectionTitle}>Current Competitions</Text>
                 </View>
-                {teamStats.runningCompetitions.map((competition) => (
+                {teamStats.runningCompetitions.map(competition => (
                   <View key={competition.id} style={styles.competitionCard}>
-                    <Image source={{ uri: competition.emblem }} style={styles.competitionEmblem} />
+                    <Image
+                      source={{ uri: competition.emblem }}
+                      style={styles.competitionEmblem}
+                    />
                     <View style={styles.competitionInfo}>
-                      <Text style={styles.competitionName}>{competition.name}</Text>
-                      <Text style={styles.competitionType}>{competition.type}</Text>
+                      <Text style={styles.competitionName}>
+                        {competition.name}
+                      </Text>
+                      <Text style={styles.competitionType}>
+                        {competition.type}
+                      </Text>
                     </View>
                   </View>
                 ))}
@@ -1167,24 +1367,36 @@ export default function FixturesScreen(): React.ReactElement {
                   {/* Overall Record */}
                   <View style={styles.statsSection}>
                     <View style={styles.sectionHeader}>
-                      <Ionicons name="stats-chart-outline" size={24} color="#e21d38" />
+                      <Ionicons
+                        name='stats-chart-outline'
+                        size={24}
+                        color='#e21d38'
+                      />
                       <Text style={styles.sectionTitle}>Season Record</Text>
                     </View>
                     <View style={styles.statsGrid}>
                       <View style={styles.statCard}>
-                        <Text style={styles.statNumber}>{matchStats.totalMatches}</Text>
+                        <Text style={styles.statNumber}>
+                          {matchStats.totalMatches}
+                        </Text>
                         <Text style={styles.statLabel}>Matches</Text>
                       </View>
                       <View style={styles.statCard}>
-                        <Text style={[styles.statNumber, { color: '#4CAF50' }]}>{matchStats.wins}</Text>
+                        <Text style={[styles.statNumber, { color: '#4CAF50' }]}>
+                          {matchStats.wins}
+                        </Text>
                         <Text style={styles.statLabel}>Wins</Text>
                       </View>
                       <View style={styles.statCard}>
-                        <Text style={[styles.statNumber, { color: '#FF9800' }]}>{matchStats.draws}</Text>
+                        <Text style={[styles.statNumber, { color: '#FF9800' }]}>
+                          {matchStats.draws}
+                        </Text>
                         <Text style={styles.statLabel}>Draws</Text>
                       </View>
                       <View style={styles.statCard}>
-                        <Text style={[styles.statNumber, { color: '#F44336' }]}>{matchStats.losses}</Text>
+                        <Text style={[styles.statNumber, { color: '#F44336' }]}>
+                          {matchStats.losses}
+                        </Text>
                         <Text style={styles.statLabel}>Losses</Text>
                       </View>
                     </View>
@@ -1193,25 +1405,43 @@ export default function FixturesScreen(): React.ReactElement {
                   {/* Goals Statistics */}
                   <View style={styles.statsSection}>
                     <View style={styles.sectionHeader}>
-                      <Ionicons name="football-outline" size={24} color="#e21d38" />
+                      <Ionicons
+                        name='football-outline'
+                        size={24}
+                        color='#e21d38'
+                      />
                       <Text style={styles.sectionTitle}>Goals & Defense</Text>
                     </View>
                     <View style={styles.statsGrid}>
                       <View style={styles.statCard}>
-                        <Text style={[styles.statNumber, { color: '#4CAF50' }]}>{matchStats.goalsScored}</Text>
+                        <Text style={[styles.statNumber, { color: '#4CAF50' }]}>
+                          {matchStats.goalsScored}
+                        </Text>
                         <Text style={styles.statLabel}>Goals Scored</Text>
                       </View>
                       <View style={styles.statCard}>
-                        <Text style={[styles.statNumber, { color: '#F44336' }]}>{matchStats.goalsConceded}</Text>
+                        <Text style={[styles.statNumber, { color: '#F44336' }]}>
+                          {matchStats.goalsConceded}
+                        </Text>
                         <Text style={styles.statLabel}>Goals Conceded</Text>
                       </View>
                       <View style={styles.statCard}>
-                        <Text style={[styles.statNumber, { color: '#2196F3' }]}>{matchStats.cleanSheets}</Text>
+                        <Text style={[styles.statNumber, { color: '#2196F3' }]}>
+                          {matchStats.cleanSheets}
+                        </Text>
                         <Text style={styles.statLabel}>Clean Sheets</Text>
                       </View>
                       <View style={styles.statCard}>
                         <Text style={[styles.statNumber, { color: '#9C27B0' }]}>
-                          {matchStats.totalMatches > 0 ? (matchStats.goalsScored - matchStats.goalsConceded > 0 ? '+' : '') + (matchStats.goalsScored - matchStats.goalsConceded) : '0'}
+                          {matchStats.totalMatches > 0
+                            ? (matchStats.goalsScored -
+                                matchStats.goalsConceded >
+                              0
+                                ? '+'
+                                : '') +
+                              (matchStats.goalsScored -
+                                matchStats.goalsConceded)
+                            : '0'}
                         </Text>
                         <Text style={styles.statLabel}>Goal Difference</Text>
                       </View>
@@ -1221,23 +1451,31 @@ export default function FixturesScreen(): React.ReactElement {
                   {/* Home vs Away */}
                   <View style={styles.statsSection}>
                     <View style={styles.sectionHeader}>
-                      <Ionicons name="home-outline" size={24} color="#e21d38" />
+                      <Ionicons name='home-outline' size={24} color='#e21d38' />
                       <Text style={styles.sectionTitle}>Home vs Away</Text>
                     </View>
                     <View style={styles.homeAwayContainer}>
                       <View style={styles.homeAwayCard}>
                         <Text style={styles.homeAwayTitle}>🏠 Home</Text>
                         <Text style={styles.homeAwayRecord}>
-                          {matchStats.homeRecord.wins}W - {matchStats.homeRecord.draws}D - {matchStats.homeRecord.losses}L
+                          {matchStats.homeRecord.wins}W -{' '}
+                          {matchStats.homeRecord.draws}D -{' '}
+                          {matchStats.homeRecord.losses}L
                         </Text>
-                        <Text style={styles.homeAwayMatches}>{matchStats.homeRecord.matches} matches</Text>
+                        <Text style={styles.homeAwayMatches}>
+                          {matchStats.homeRecord.matches} matches
+                        </Text>
                       </View>
                       <View style={styles.homeAwayCard}>
                         <Text style={styles.homeAwayTitle}>✈️ Away</Text>
                         <Text style={styles.homeAwayRecord}>
-                          {matchStats.awayRecord.wins}W - {matchStats.awayRecord.draws}D - {matchStats.awayRecord.losses}L
+                          {matchStats.awayRecord.wins}W -{' '}
+                          {matchStats.awayRecord.draws}D -{' '}
+                          {matchStats.awayRecord.losses}L
                         </Text>
-                        <Text style={styles.homeAwayMatches}>{matchStats.awayRecord.matches} matches</Text>
+                        <Text style={styles.homeAwayMatches}>
+                          {matchStats.awayRecord.matches} matches
+                        </Text>
                       </View>
                     </View>
                   </View>
@@ -1246,18 +1484,22 @@ export default function FixturesScreen(): React.ReactElement {
                   <View style={styles.statsSection}>
                     <View style={styles.sectionHeader}>
                       <View style={styles.sectionTitleContainer}>
-                        <Ionicons name="medal-outline" size={24} color="#e21d38" />
+                        <Ionicons
+                          name='medal-outline'
+                          size={24}
+                          color='#e21d38'
+                        />
                         <Text style={styles.sectionTitle}>Top Scorers</Text>
                       </View>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         onPress={() => fetchTeamStatistics()}
                         style={styles.refreshButton}
                         disabled={statsLoading}
                       >
-                        <Ionicons 
-                          name="refresh" 
-                          size={20} 
-                          color={statsLoading ? "#ccc" : "#e21d38"} 
+                        <Ionicons
+                          name='refresh'
+                          size={20}
+                          color={statsLoading ? '#ccc' : '#e21d38'}
                         />
                       </TouchableOpacity>
                     </View>
@@ -1266,25 +1508,43 @@ export default function FixturesScreen(): React.ReactElement {
                         {topScorers.map((scorer, index) => (
                           <View key={scorer.id} style={styles.scorerCard}>
                             <View style={styles.scorerRank}>
-                              <Text style={styles.scorerRankText}>#{index + 1}</Text>
+                              <Text style={styles.scorerRankText}>
+                                #{index + 1}
+                              </Text>
                             </View>
                             <View style={styles.scorerInfo}>
-                              <Text style={styles.scorerName}>{scorer.name}</Text>
+                              <Text style={styles.scorerName}>
+                                {scorer.name}
+                              </Text>
                               <Text style={styles.scorerStats}>
-                                {scorer.goals} goal{scorer.goals !== 1 ? 's' : ''} in {scorer.matches} matches
+                                {scorer.goals} goal
+                                {scorer.goals !== 1 ? 's' : ''} in{' '}
+                                {scorer.matches} matches
                               </Text>
                             </View>
                             <View style={styles.scorerGoals}>
-                              <Text style={styles.scorerGoalsText}>{scorer.goals}</Text>
-                              <Ionicons name="football" size={16} color="#e21d38" />
+                              <Text style={styles.scorerGoalsText}>
+                                {scorer.goals}
+                              </Text>
+                              <Ionicons
+                                name='football'
+                                size={16}
+                                color='#e21d38'
+                              />
                             </View>
                           </View>
                         ))}
                       </>
                     ) : (
                       <View style={styles.noScorersContainer}>
-                        <Ionicons name="football-outline" size={32} color="#ccc" />
-                        <Text style={styles.noScorersText}>Loading goal scorer data...</Text>
+                        <Ionicons
+                          name='football-outline'
+                          size={32}
+                          color='#ccc'
+                        />
+                        <Text style={styles.noScorersText}>
+                          Loading goal scorer data...
+                        </Text>
                       </View>
                     )}
                   </View>
@@ -1293,23 +1553,37 @@ export default function FixturesScreen(): React.ReactElement {
                   {topAssists.length > 0 && (
                     <View style={styles.statsSection}>
                       <View style={styles.sectionHeader}>
-                        <Ionicons name="hand-left-outline" size={24} color="#e21d38" />
+                        <Ionicons
+                          name='hand-left-outline'
+                          size={24}
+                          color='#e21d38'
+                        />
                         <Text style={styles.sectionTitle}>Top Assists</Text>
                       </View>
                       {topAssists.map((assist, index) => (
                         <View key={assist.id} style={styles.scorerCard}>
                           <View style={styles.scorerRank}>
-                            <Text style={styles.scorerRankText}>#{index + 1}</Text>
+                            <Text style={styles.scorerRankText}>
+                              #{index + 1}
+                            </Text>
                           </View>
                           <View style={styles.scorerInfo}>
                             <Text style={styles.scorerName}>{assist.name}</Text>
                             <Text style={styles.scorerStats}>
-                              {assist.assists} assist{assist.assists !== 1 ? 's' : ''} in {assist.matches} matches
+                              {assist.assists} assist
+                              {assist.assists !== 1 ? 's' : ''} in{' '}
+                              {assist.matches} matches
                             </Text>
                           </View>
                           <View style={styles.scorerGoals}>
-                            <Text style={styles.scorerGoalsText}>{assist.assists}</Text>
-                            <Ionicons name="hand-left" size={16} color="#e21d38" />
+                            <Text style={styles.scorerGoalsText}>
+                              {assist.assists}
+                            </Text>
+                            <Ionicons
+                              name='hand-left'
+                              size={16}
+                              color='#e21d38'
+                            />
                           </View>
                         </View>
                       ))}
@@ -1318,9 +1592,14 @@ export default function FixturesScreen(): React.ReactElement {
 
                   {/* Data source note */}
                   <View style={styles.scorersNote}>
-                    <Ionicons name="information-circle-outline" size={16} color="#666" />
+                    <Ionicons
+                      name='information-circle-outline'
+                      size={16}
+                      color='#666'
+                    />
                     <Text style={styles.scorersNoteText}>
-                      Statistics sourced from ESPN. Data updates automatically with each refresh.
+                      Statistics sourced from ESPN. Data updates automatically
+                      with each refresh.
                     </Text>
                   </View>
                 </>
@@ -1328,16 +1607,26 @@ export default function FixturesScreen(): React.ReactElement {
 
               {/* Note about more stats */}
               <View style={styles.noteContainer}>
-                <Ionicons name="information-circle-outline" size={20} color="#666" />
+                <Ionicons
+                  name='information-circle-outline'
+                  size={20}
+                  color='#666'
+                />
                 <Text style={styles.noteText}>
-                  More detailed statistics like goals, wins/losses, and league position will be available in future updates.
+                  More detailed statistics like goals, wins/losses, and league
+                  position will be available in future updates.
                 </Text>
               </View>
             </ScrollView>
           ) : (
             <View style={styles.noDataContainer}>
-              <Text style={styles.noDataText}>Failed to load team statistics</Text>
-              <TouchableOpacity onPress={fetchTeamStatistics} style={styles.retryButton}>
+              <Text style={styles.noDataText}>
+                Failed to load team statistics
+              </Text>
+              <TouchableOpacity
+                onPress={fetchTeamStatistics}
+                style={styles.retryButton}
+              >
                 <Text style={styles.retryButtonText}>Retry</Text>
               </TouchableOpacity>
             </View>
@@ -1345,27 +1634,31 @@ export default function FixturesScreen(): React.ReactElement {
         ) : currentFixtures.length === 0 ? (
           <View style={styles.noDataContainer}>
             <Text style={styles.noDataText}>
-              {activeTab === 'upcoming' 
-                ? 'No upcoming fixtures found' 
+              {activeTab === 'upcoming'
+                ? 'No upcoming fixtures found'
                 : 'No past fixtures available'}
             </Text>
           </View>
         ) : (
           <FlatList
             data={listFixtures}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => renderFixtureItem({ 
-              item, 
-              isPast: activeTab === 'past' 
-            })}
-            ListHeaderComponent={activeTab === 'upcoming' ? renderNextMatchCountdown : null}
+            keyExtractor={item => item.id.toString()}
+            renderItem={({ item }) =>
+              renderFixtureItem({
+                item,
+                isPast: activeTab === 'past',
+              })
+            }
+            ListHeaderComponent={
+              activeTab === 'upcoming' ? renderNextMatchCountdown : null
+            }
             contentContainerStyle={styles.listContainer}
           />
         )}
         {renderMatchDetailsModal()}
       </View>
     </SafeAreaView>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -1881,4 +2174,4 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     lineHeight: 16,
   },
-});
+})

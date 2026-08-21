@@ -43,6 +43,9 @@ app-example
 GoogleService-Info.plist
 firebase-adminsdk-*.json
 *firebase-adminsdk*.json
+cloudflare-worker/.dev.vars
+cloudflare-worker/.dev.vars.*
+!cloudflare-worker/.dev.vars.example
 serviceAccountKey.json
 .firebase/
 firebase-debug.log
