@@ -1,0 +1,25 @@
+/* global.css — web-only global styles, imported from app/_layout.tsx */
+
+/* Constrain the app to a readable desktop width so it doesn't stretch
+   edge-to-edge on wide monitors. Centered with auto margins. */
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  background-color: #e7ebf0;
+  font-family: Georgia, 'Times New Roman', serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* On very narrow windows (e.g. a snapped browser), let body shrink
+   below 1280 so horizontal scrollbars never appear. */
+@media (max-width: 600px) {
+  body {
+    max-width: 100%;
+  }
+}

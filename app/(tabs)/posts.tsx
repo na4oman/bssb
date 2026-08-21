@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -8,65 +8,66 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../contexts/AuthContext';
-import { getCurrentUser } from '../../utils/userUtils';
-import { Post } from '../../types/post';
+} from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { useAuth } from '../../contexts/AuthContext'
+import { getCurrentUser } from '../../utils/userUtils'
+import { Post } from '../../types/post'
 import {
   subscribeToPosts,
   togglePostLike,
   deletePost,
   checkIsAdmin,
-} from '../../utils/postService';
-import { format } from 'date-fns';
-import Modal from 'react-native-modal';
-import PostForm from '../../components/PostForm';
-import PostDetailsModal from '../../components/PostDetailsModal';
+} from '../../utils/postService'
+import { format } from 'date-fns'
+import Modal from 'react-native-modal'
+import PostForm from '../../components/PostForm'
+import PostDetailsModal from '../../components/PostDetailsModal'
+import { isWeb, maxWidthContent } from '../../utils/platformStyles'
 
 export default function PostsScreen() {
-  const { user } = useAuth();
-  const currentUser = getCurrentUser(user);
-  
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [showPostForm, setShowPostForm] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const [showPostDetails, setShowPostDetails] = useState(false);
+  const { user } = useAuth()
+  const currentUser = getCurrentUser(user)
+
+  const [posts, setPosts] = useState<Post[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [showPostForm, setShowPostForm] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null)
+  const [showPostDetails, setShowPostDetails] = useState(false)
 
   // Check if user is admin
   useEffect(() => {
     if (user) {
-      checkIsAdmin(user.uid).then(setIsAdmin);
+      checkIsAdmin(user.uid).then(setIsAdmin)
     }
-  }, [user]);
+  }, [user])
 
   // Subscribe to posts
   useEffect(() => {
-    const unsubscribe = subscribeToPosts((fetchedPosts) => {
-      setPosts(fetchedPosts);
-      setLoading(false);
-      setRefreshing(false);
-    });
+    const unsubscribe = subscribeToPosts(fetchedPosts => {
+      setPosts(fetchedPosts)
+      setLoading(false)
+      setRefreshing(false)
+    })
 
-    return () => unsubscribe();
-  }, []);
+    return () => unsubscribe()
+  }, [])
 
   const handleRefresh = () => {
-    setRefreshing(true);
-  };
+    setRefreshing(true)
+  }
 
   const handleLike = async (postId: string) => {
-    if (!user) return;
-    
+    if (!user) return
+
     try {
-      await togglePostLike(postId, user.uid);
+      await togglePostLike(postId, user.uid)
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to like post');
+      Alert.alert('Error', error.message || 'Failed to like post')
     }
-  };
+  }
 
   const handleDeletePost = (post: Post) => {
     Alert.alert(
@@ -80,38 +81,38 @@ export default function PostsScreen() {
           onPress: async () => {
             try {
               if (user) {
-                await deletePost(post.id, user.uid);
-                Alert.alert('Success', 'Post deleted successfully');
+                await deletePost(post.id, user.uid)
+                Alert.alert('Success', 'Post deleted successfully')
               }
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to delete post');
+              Alert.alert('Error', error.message || 'Failed to delete post')
             }
           },
         },
-      ]
-    );
-  };
+      ],
+    )
+  }
 
   const handlePostPress = (post: Post) => {
-    setSelectedPost(post);
-    setShowPostDetails(true);
-  };
+    setSelectedPost(post)
+    setShowPostDetails(true)
+  }
 
   const renderPost = ({ item }: { item: Post }) => {
-    const isLiked = user ? item.likes.includes(user.uid) : false;
-    const isOwnPost = user ? item.createdBy.userId === user.uid : false;
+    const isLiked = user ? item.likes.includes(user.uid) : false
+    const isOwnPost = user ? item.createdBy.userId === user.uid : false
 
     return (
       <TouchableOpacity
-        style={styles.postCard}
+        style={[styles.postCard, isWeb && styles.postCardWeb]}
         onPress={() => handlePostPress(item)}
         activeOpacity={0.7}
       >
         <View style={styles.postContent}>
           <Text style={styles.postTitle}>{item.title}</Text>
-          
+
           <View style={styles.postMeta}>
-            <Ionicons name="person-circle-outline" size={16} color="#666" />
+            <Ionicons name='person-circle-outline' size={16} color='#666' />
             <Text style={styles.postAuthor}>{item.createdBy.userName}</Text>
             <Text style={styles.postDot}>•</Text>
             <Text style={styles.postDate}>
@@ -142,7 +143,7 @@ export default function PostsScreen() {
               style={styles.actionButton}
               onPress={() => handlePostPress(item)}
             >
-              <Ionicons name="chatbubble-outline" size={20} color="#666" />
+              <Ionicons name='chatbubble-outline' size={20} color='#666' />
               <Text style={styles.actionText}>{item.comments.length}</Text>
             </TouchableOpacity>
 
@@ -151,22 +152,22 @@ export default function PostsScreen() {
                 style={[styles.actionButton, styles.deleteButton]}
                 onPress={() => handleDeletePost(item)}
               >
-                <Ionicons name="trash-outline" size={20} color="#e21d38" />
+                <Ionicons name='trash-outline' size={20} color='#e21d38' />
               </TouchableOpacity>
             )}
           </View>
         </View>
       </TouchableOpacity>
-    );
-  };
+    )
+  }
 
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#e21d38" />
+        <ActivityIndicator size='large' color='#e21d38' />
         <Text style={styles.loadingText}>Loading posts...</Text>
       </View>
-    );
+    )
   }
 
   return (
@@ -174,19 +175,22 @@ export default function PostsScreen() {
       <FlatList
         data={posts}
         renderItem={renderPost}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        keyExtractor={item => item.id}
+        contentContainerStyle={[
+          styles.listContent,
+          isWeb && styles.listContentWeb,
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
             colors={['#e21d38']}
-            tintColor="#e21d38"
+            tintColor='#e21d38'
           />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="newspaper-outline" size={64} color="#ccc" />
+            <Ionicons name='newspaper-outline' size={64} color='#ccc' />
             <Text style={styles.emptyText}>No posts yet</Text>
             <Text style={styles.emptySubtext}>
               {isAdmin
@@ -202,7 +206,7 @@ export default function PostsScreen() {
           style={styles.fab}
           onPress={() => setShowPostForm(true)}
         >
-          <Ionicons name="add" size={28} color="white" />
+          <Ionicons name='add' size={28} color='white' />
         </TouchableOpacity>
       )}
 
@@ -211,14 +215,14 @@ export default function PostsScreen() {
         isVisible={showPostForm}
         onBackdropPress={() => setShowPostForm(false)}
         onSwipeComplete={() => setShowPostForm(false)}
-        swipeDirection="down"
+        swipeDirection='down'
         style={styles.modal}
       >
         <PostForm
           onClose={() => setShowPostForm(false)}
           onSuccess={() => {
-            setShowPostForm(false);
-            Alert.alert('Success', 'Post created successfully!');
+            setShowPostForm(false)
+            Alert.alert('Success', 'Post created successfully!')
           }}
         />
       </Modal>
@@ -229,13 +233,13 @@ export default function PostsScreen() {
           post={selectedPost}
           visible={showPostDetails}
           onClose={() => {
-            setShowPostDetails(false);
-            setSelectedPost(null);
+            setShowPostDetails(false)
+            setSelectedPost(null)
           }}
         />
       )}
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -257,6 +261,10 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 15,
   },
+  listContentWeb: {
+    ...maxWidthContent,
+    paddingVertical: 24,
+  },
   postCard: {
     backgroundColor: 'white',
     borderRadius: 12,
@@ -270,6 +278,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  postCardWeb: {
+    maxWidth: 920,
+    marginHorizontal: 'auto',
   },
   postImage: {
     width: '100%',
@@ -374,4 +386,4 @@ const styles = StyleSheet.create({
     margin: 0,
     justifyContent: 'flex-end',
   },
-});
+})

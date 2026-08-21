@@ -36,6 +36,7 @@ import {
 import { uploadImage } from '../../utils/imageService'
 import { markEventAsSeen } from '../../utils/seenEventsService'
 import * as ImagePicker from 'expo-image-picker'
+import { isWeb, maxWidthContent } from '../../utils/platformStyles'
 
 // Constants
 const DEFAULT_EVENT_IMAGE =
@@ -562,6 +563,10 @@ export default function App() {
               <EventCard event={item} onPress={() => setSelectedEvent(item)} />
             )}
             keyExtractor={item => item.id}
+            contentContainerStyle={[
+              styles.eventsListContent,
+              isWeb && styles.eventsListContentWeb,
+            ]}
             refreshing={loading}
             onRefresh={() => {
               // Events are automatically updated via subscription
@@ -606,6 +611,13 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  eventsListContent: {
+    paddingBottom: 90,
+  },
+  eventsListContentWeb: {
+    ...maxWidthContent,
+    paddingVertical: 24,
   },
   emptyState: {
     flex: 1,

@@ -2,6 +2,7 @@ import React from 'react'
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native'
 import { format } from 'date-fns'
 import { Ionicons } from '@expo/vector-icons'
+import { isWeb } from '../utils/platformStyles'
 
 // Restore the default event image
 const DEFAULT_EVENT_IMAGE =
@@ -46,24 +47,26 @@ type Event = {
 const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
   return (
     <TouchableOpacity
-      style={styles.eventCard}
+      style={[styles.eventCard, isWeb && styles.eventCardWeb]}
       onPress={() => onPress(event)}
       activeOpacity={0.8}
     >
       {/* Event Image */}
       <Image
         source={{ uri: event.imageUrl || DEFAULT_EVENT_IMAGE }}
-        style={styles.eventCardImage}
+        style={[styles.eventCardImage, isWeb && styles.eventCardImageWeb]}
         resizeMode='cover'
       />
-      
+
       {/* Content Container */}
-      <View style={styles.contentContainer}>
+      <View
+        style={[styles.contentContainer, isWeb && styles.contentContainerWeb]}
+      >
         {/* Event Title */}
         <Text style={styles.eventTitle} numberOfLines={2}>
           {event.title}
         </Text>
-        
+
         {/* Date Section */}
         <View style={styles.infoRow}>
           <View style={styles.labelContainer}>
@@ -73,11 +76,9 @@ const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
           <Text style={styles.dateValue}>
             {format(event.date, 'MMM dd, yyyy')}
           </Text>
-          <Text style={styles.timeValue}>
-            {format(event.date, 'HH:mm')}
-          </Text>
+          <Text style={styles.timeValue}>{format(event.date, 'HH:mm')}</Text>
         </View>
-        
+
         {/* Location Section */}
         <View style={styles.infoRow}>
           <View style={styles.labelContainer}>
@@ -88,7 +89,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
             {event.location}
           </Text>
         </View>
-        
+
         {/* Description Section */}
         {event.description && (
           <View style={styles.descriptionContainer}>
@@ -98,7 +99,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
             </Text>
           </View>
         )}
-        
+
         {/* Created By */}
         <View style={styles.createdByContainer}>
           <Ionicons name='person-outline' size={14} color='#999' />
@@ -107,9 +108,11 @@ const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
           </Text>
         </View>
       </View>
-      
+
       {/* Footer Stats */}
-      <View style={styles.eventCardFooter}>
+      <View
+        style={[styles.eventCardFooter, isWeb && styles.eventCardFooterWeb]}
+      >
         <View style={styles.eventCardStats}>
           <Ionicons name='heart' size={18} color='#e21d38' />
           <Text style={styles.eventCardStatsText}>{event.likes.length}</Text>
@@ -144,12 +147,32 @@ const styles = StyleSheet.create({
     elevation: 6,
     overflow: 'hidden',
   },
+  eventCardWeb: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    maxWidth: 920,
+    marginHorizontal: 'auto',
+    width: '100%',
+    borderRadius: 14,
+  },
   eventCardImage: {
     width: '100%',
     height: 180,
   },
+  eventCardImageWeb: {
+    width: 220,
+    height: '100%',
+    alignSelf: 'stretch',
+    borderTopLeftRadius: 14,
+    borderBottomLeftRadius: 14,
+  },
   contentContainer: {
     padding: 16,
+  },
+  contentContainerWeb: {
+    flex: 1,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
   },
   eventTitle: {
     fontSize: 20,
@@ -239,6 +262,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     borderTopWidth: 1,
     borderTopColor: '#e9ecef',
+  },
+  eventCardFooterWeb: {
+    width: 96,
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#fbfcfd',
+    borderTopWidth: 0,
+    borderLeftWidth: 1,
+    borderLeftColor: '#edf0f3',
   },
   eventCardStats: {
     flexDirection: 'row',

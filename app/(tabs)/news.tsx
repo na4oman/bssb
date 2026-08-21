@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -10,173 +10,183 @@ import {
   Button,
   ActivityIndicator,
   ScrollView,
-} from 'react-native';
-import { format, differenceInDays } from 'date-fns';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import Constants from 'expo-constants';
-import { newsApiKey } from '../../config/config';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+} from 'react-native'
+import { format, differenceInDays } from 'date-fns'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import axios from 'axios'
+import Constants from 'expo-constants'
+import { newsApiKey } from '../../config/config'
+import { LinearGradient } from 'expo-linear-gradient'
+import { Ionicons } from '@expo/vector-icons'
+import { isWeb, maxWidthContent } from '../../utils/platformStyles'
 
 type NewsItem = {
-  id: string;
-  title: string;
-  date: Date;
-  imageUrl: string;
-  summary: string;
-  url: string;
-};
+  id: string
+  title: string
+  date: Date
+  imageUrl: string
+  summary: string
+  url: string
+}
 
 interface MatchResult {
-  opponent: string;
-  score: string;
-  highlights: string;
-  date?: string;
+  opponent: string
+  score: string
+  highlights: string
+  date?: string
 }
 
 type LatestSunderlandNewsItem = {
-  type: string;
-  title: string;
-  description: string;
-  icon: string;
-};
+  type: string
+  title: string
+  description: string
+  icon: string
+}
 
 type SunderlandTeamStatus = {
   previous_match?: {
-    opponent: string;
-    date: string;
-    result: string;
-  };
+    opponent: string
+    date: string
+    result: string
+  }
   next_match?: {
-    opponent: string;
-    date: string;
-    time: string;
-    competition: string;
-    venue?: string;
-  };
+    opponent: string
+    date: string
+    time: string
+    competition: string
+    venue?: string
+  }
   injuries?: Array<{
-    player: string;
-    status: string;
-  }>;
+    player: string
+    status: string
+  }>
   suspensions?: Array<{
-    player: string;
-    status: string;
-  }>;
-};
+    player: string
+    status: string
+  }>
+}
 
 export default function NewsScreen() {
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [displayedNews, setDisplayedNews] = useState<NewsItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [latestSunderlandNews, setLatestSunderlandNews] = useState<LatestSunderlandNewsItem[]>([]);
-  const [teamStatus, setTeamStatus] = useState<SunderlandTeamStatus>({});
+  const [news, setNews] = useState<NewsItem[]>([])
+  const [displayedNews, setDisplayedNews] = useState<NewsItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [latestSunderlandNews, setLatestSunderlandNews] = useState<
+    LatestSunderlandNewsItem[]
+  >([])
+  const [teamStatus, setTeamStatus] = useState<SunderlandTeamStatus>({})
 
   const fetchNews = async () => {
     try {
-      const apiKey = newsApiKey;
+      const apiKey = newsApiKey
 
       if (!apiKey) {
-        throw new Error('No API key found in configuration');
+        throw new Error('No API key found in configuration')
       }
 
-      setLoading(true);
-      const response = await axios.get(`https://newsapi.org/v2/everything?q=Sunderland+AFC+football+club&language=en&sortBy=publishedAt&pageSize=20&apiKey=${apiKey}`, {
-        timeout: 10000 // 10 seconds timeout
-      });
+      setLoading(true)
+      const response = await axios.get(
+        `https://newsapi.org/v2/everything?q=Sunderland+AFC+football+club&language=en&sortBy=publishedAt&pageSize=20&apiKey=${apiKey}`,
+        {
+          timeout: 10000, // 10 seconds timeout
+        },
+      )
 
       const newsData = response.data.articles.map((article: any) => ({
         id: article.url, // Use URL as unique identifier
         title: article.title || 'Untitled Article',
         date: new Date(article.publishedAt || Date.now()),
-        imageUrl: article.urlToImage || 'https://via.placeholder.com/300x200.png?text=SAFC+News',
+        imageUrl:
+          article.urlToImage ||
+          'https://via.placeholder.com/300x200.png?text=SAFC+News',
         summary: article.description || 'No summary available',
-        url: article.url
-      }));
+        url: article.url,
+      }))
 
-      setNews(newsData);
-      setDisplayedNews(newsData.slice(0, 5));
-      setError(null);
+      setNews(newsData)
+      setDisplayedNews(newsData.slice(0, 5))
+      setError(null)
     } catch (error) {
-      console.error('News Fetching Error:', error);
-      
+      console.error('News Fetching Error:', error)
+
       if (axios.isAxiosError(error)) {
         console.error('Detailed Axios Error:', {
           response: error.response?.data,
           status: error.response?.status,
           headers: error.response?.headers,
-          message: error.message
-        });
+          message: error.message,
+        })
       }
 
-      setError(error instanceof Error ? error.message : 'An unknown error occurred');
-      setNews([]);
-      setDisplayedNews([]);
+      setError(
+        error instanceof Error ? error.message : 'An unknown error occurred',
+      )
+      setNews([])
+      setDisplayedNews([])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // const fetchSunderlandNews = async () => {
   //   try {
-      // Use require to import local JSON file
-      // const teamData = require('../../sunderland_latest_news.json');
+  // Use require to import local JSON file
+  // const teamData = require('../../sunderland_latest_news.json');
 
-      // Extract team status
-      // const status: SunderlandTeamStatus = {
-      //   previous_match: teamData.previous_match,
-      //   next_match: teamData.next_match,
-      //   injuries: teamData.injuries,
-      //   suspensions: teamData.suspensions
-      // };
-      // setTeamStatus(status);
+  // Extract team status
+  // const status: SunderlandTeamStatus = {
+  //   previous_match: teamData.previous_match,
+  //   next_match: teamData.next_match,
+  //   injuries: teamData.injuries,
+  //   suspensions: teamData.suspensions
+  // };
+  // setTeamStatus(status);
 
-      // Combine and deduplicate recent matches
-      // const allRecentMatches = [
-      //   ...(teamData.recent_matches || []),
-      //   ...(teamData.recent_results || [])
-      // ].filter((match: any, index: number, self: any[]) => 
-      //   index === self.findIndex((m) => 
-      //     m.opponent === match.opponent && m.score === match.score
-      //   )
-      // );
+  // Combine and deduplicate recent matches
+  // const allRecentMatches = [
+  //   ...(teamData.recent_matches || []),
+  //   ...(teamData.recent_results || [])
+  // ].filter((match: any, index: number, self: any[]) =>
+  //   index === self.findIndex((m) =>
+  //     m.opponent === match.opponent && m.score === match.score
+  //   )
+  // );
 
-      // Create news items based on team status
-      // const sunderlandNews: LatestSunderlandNewsItem[] = [
-      //   ...allRecentMatches.map((result: any) => ({
-      //     type: 'Match Result',
-      //     title: `vs ${result.opponent || 'Unknown'}`,
-      //     description: `${result.score || 'No score'} - ${result.highlights || 'No highlights'}`,
-      //     icon: 'football'
-      //   })),
-      //   ...(teamData.team_notes || []).map((note: any) => ({
-      //     type: 'Team Update',
-      //     title: 'Club News',
-      //     description: note,
-      //     icon: 'information-circle'
-      //   })),
-      //   ...(teamData.transfer_news || []).map((transfer: any) => ({
-      //     type: 'Transfer News',
-      //     title: transfer.player,
-      //     description: transfer.details,
-      //     icon: 'swap-horizontal'
-      //   })),
-      //   ...(status.injuries || []).map(injury => ({
-      //     type: 'Injury Update',
-      //     title: injury.player,
-      //     description: injury.status,
-      //     icon: 'medical'
-      //   })),
-      //   ...(status.suspensions || []).map(suspension => ({
-      //     type: 'Suspension',
-      //     title: suspension.player,
-      //     description: suspension.status,
-      //     icon: 'warning'
-      //   }))
-      // ];
+  // Create news items based on team status
+  // const sunderlandNews: LatestSunderlandNewsItem[] = [
+  //   ...allRecentMatches.map((result: any) => ({
+  //     type: 'Match Result',
+  //     title: `vs ${result.opponent || 'Unknown'}`,
+  //     description: `${result.score || 'No score'} - ${result.highlights || 'No highlights'}`,
+  //     icon: 'football'
+  //   })),
+  //   ...(teamData.team_notes || []).map((note: any) => ({
+  //     type: 'Team Update',
+  //     title: 'Club News',
+  //     description: note,
+  //     icon: 'information-circle'
+  //   })),
+  //   ...(teamData.transfer_news || []).map((transfer: any) => ({
+  //     type: 'Transfer News',
+  //     title: transfer.player,
+  //     description: transfer.details,
+  //     icon: 'swap-horizontal'
+  //   })),
+  //   ...(status.injuries || []).map(injury => ({
+  //     type: 'Injury Update',
+  //     title: injury.player,
+  //     description: injury.status,
+  //     icon: 'medical'
+  //   })),
+  //   ...(status.suspensions || []).map(suspension => ({
+  //     type: 'Suspension',
+  //     title: suspension.player,
+  //     description: suspension.status,
+  //     icon: 'warning'
+  //   }))
+  // ];
 
-      // Always update the cached news
+  // Always update the cached news
   //     await AsyncStorage.setItem('sunderlandLatestNews', JSON.stringify({
   //       news: sunderlandNews,
   //       timestamp: new Date().getTime()
@@ -185,7 +195,7 @@ export default function NewsScreen() {
   //     setLatestSunderlandNews(sunderlandNews);
   //   } catch (err) {
   //     console.error('Error fetching Sunderland news:', err);
-      
+
   //     // Try to retrieve cached news if available
   //     try {
   //       const cachedNewsString = await AsyncStorage.getItem('sunderlandLatestNews');
@@ -213,36 +223,36 @@ export default function NewsScreen() {
   // Method to clear AsyncStorage cache for Sunderland news
   const clearSunderlandNewsCache = async () => {
     try {
-      await AsyncStorage.removeItem('sunderlandLatestNews');
-      console.log('Sunderland news cache cleared');
+      await AsyncStorage.removeItem('sunderlandLatestNews')
+      console.log('Sunderland news cache cleared')
       // Optionally, refetch news after clearing
       // await fetchSunderlandNews();
     } catch (err) {
-      console.error('Error clearing Sunderland news cache:', err);
+      console.error('Error clearing Sunderland news cache:', err)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchNews();
+    fetchNews()
     // fetchSunderlandNews();
     // Uncomment the following line if you want to clear cache on component mount (for testing)
     // clearSunderlandNewsCache();
-  }, []);
+  }, [])
 
   if (error) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Error fetching news: {error}</Text>
       </View>
-    );
+    )
   }
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#e21d38" />
+        <ActivityIndicator size='large' color='#e21d38' />
       </View>
-    );
+    )
   }
 
   if (displayedNews.length === 0) {
@@ -250,16 +260,16 @@ export default function NewsScreen() {
       <View style={styles.container}>
         <Text style={styles.errorText}>No news articles found</Text>
       </View>
-    );
+    )
   }
 
   const openArticle = (url: string) => {
-    Linking.openURL(url);
-  };
+    Linking.openURL(url)
+  }
 
   const showAllNews = () => {
-    setDisplayedNews(news);
-  };
+    setDisplayedNews(news)
+  }
 
   return (
     <View style={styles.container}>
@@ -272,31 +282,48 @@ export default function NewsScreen() {
         <Text style={styles.cacheClearButtonText}>Refresh News</Text>
       </TouchableOpacity> */}
 
-    
-
       <FlatList
         data={displayedNews}
-        keyExtractor={(item) => item.id}
+        keyExtractor={item => item.id}
+        contentContainerStyle={[
+          styles.newsListContent,
+          isWeb && styles.newsListContentWeb,
+        ]}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => openArticle(item.url)} style={styles.newsItem}>
-            <Image source={{ uri: item.imageUrl }} style={styles.newsImage} />
-            <View style={styles.newsTextContainer}>
-              <Text style={styles.newsTitle} numberOfLines={2}>{item.title}</Text>
+          <TouchableOpacity
+            onPress={() => openArticle(item.url)}
+            style={[styles.newsItem, isWeb && styles.newsItemWeb]}
+          >
+            <Image
+              source={{ uri: item.imageUrl }}
+              style={[styles.newsImage, isWeb && styles.newsImageWeb]}
+            />
+            <View
+              style={[
+                styles.newsTextContainer,
+                isWeb && styles.newsTextContainerWeb,
+              ]}
+            >
+              <Text style={styles.newsTitle} numberOfLines={2}>
+                {item.title}
+              </Text>
               <Text style={styles.newsDate}>
                 {format(item.date, 'dd MMM yyyy')}
               </Text>
-              <Text style={styles.newsSummary} numberOfLines={2}>{item.summary}</Text>
+              <Text style={styles.newsSummary} numberOfLines={2}>
+                {item.summary}
+              </Text>
             </View>
           </TouchableOpacity>
         )}
         ListFooterComponent={
           news.length > 5 && displayedNews.length < news.length ? (
-            <Button title="Show All News" onPress={showAllNews} />
+            <Button title='Show All News' onPress={showAllNews} />
           ) : null
         }
       />
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -309,15 +336,41 @@ const styles = StyleSheet.create({
     margin: 10,
     borderRadius: 10,
     overflow: 'hidden',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    shadowColor: '#182230',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     elevation: 3,
+  },
+  newsItemWeb: {
+    flexDirection: 'row',
+    maxWidth: 920,
+    width: '100%',
+    marginHorizontal: 'auto',
+    minHeight: 150,
   },
   newsImage: {
     width: '100%',
     height: 200,
   },
+  newsListContent: {
+    paddingBottom: 24,
+  },
+  newsListContentWeb: {
+    ...maxWidthContent,
+    paddingVertical: 24,
+  },
+  newsImageWeb: {
+    width: 220,
+    height: 150,
+  },
   newsTextContainer: {
     padding: 15,
+  },
+  newsTextContainerWeb: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   newsTitle: {
     fontSize: 18,
@@ -411,4 +464,4 @@ const styles = StyleSheet.create({
     color: '#e21d38',
     marginLeft: 10,
   },
-});
+})
