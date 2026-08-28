@@ -83,6 +83,8 @@ type FixtureMatch = {
   score?: MatchScore
   referees?: MatchReferee[]
   head2head?: MatchHead2Head
+  competition?: string
+  source?: 'football-data' | 'espn'
 }
 
 type TeamStatistics = {
@@ -213,6 +215,126 @@ export default function FixturesScreen(): React.ReactElement {
     return () => clearInterval(interval)
   }, [fixtures])
 
+  // Fetch Sunderland's cup/European fixtures from ESPN's public JSON API.
+  // football-data.org can't provide these on the free tier: the UEFA Europa
+  // League (code 'EL') is paid-tier only, and the Carabao Cup isn't covered at
+  // all. ESPN's JSON API is free, unblocked and CORS-enabled, so this works on
+  // web and native.
+  const ESPN_EXTRA_COMPETITIONS = [
+    { slug: 'uefa.europa', name: 'UEFA Europa League' },
+    { slug: 'eng.league_cup', name: 'Carabao Cup' },
+  ]
+
+  const espnCrest = (team: any): string =>
+    team?.logo || team?.logos?.[0]?.href || ''
+
+  const fetchExtraCompetitionsFixtures = useCallback(async (): Promise<{
+    upcoming: FixtureMatch[]
+    past: FixtureMatch[]
+  }> => {
+    const upcoming: FixtureMatch[] = []
+    const past: FixtureMatch[] = []
+    const season = new Date().getFullYear()
+
+    for (const competition of ESPN_EXTRA_COMPETITIONS) {
+      try {
+        const baseUrl = `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${competition.slug}/teams/366/schedule`
+        // `fixture=true` returns upcoming fixtures; `season=` returns the
+        // season's matches (finished ones). Fetch both and de-duplicate.
+        const [fixtureRes, seasonRes] = await Promise.all([
+          axios.get(baseUrl, { params: { fixture: true }, timeout: 20000 }),
+          axios.get(baseUrl, { params: { season }, timeout: 20000 }),
+        ])
+        const events: any[] = [
+          ...(fixtureRes?.data?.events || []),
+          ...(seasonRes?.data?.events || []),
+        ]
+        console.log(
+          `${competition.name} events from ESPN: ${events.length}`,
+        )
+
+        const seen = new Set<string>()
+        events.forEach(event => {
+          if (seen.has(String(event.id))) return
+          seen.add(String(event.id))
+
+          const comp = event.competitions?.[0]
+          if (!comp) return
+          const home = comp.competitors?.find(
+            (c: any) => c.homeAway === 'home',
+          )
+          const away = comp.competitors?.find(
+            (c: any) => c.homeAway === 'away',
+          )
+          if (!home?.team || !away?.team) return
+
+          // ESPN state: 'pre' (scheduled) | 'in' (live) | 'post' (finished).
+          // Some far-future fixtures have no status yet -> default SCHEDULED.
+          const state = event.status?.type?.state
+          const status =
+            state === 'post'
+              ? 'FINISHED'
+              : state === 'in'
+                ? 'IN_PLAY'
+                : 'SCHEDULED'
+
+          const homeScore =
+            home.score != null ? parseInt(home.score, 10) : null
+          const awayScore =
+            away.score != null ? parseInt(away.score, 10) : null
+
+          const match: FixtureMatch = {
+            id: parseInt(event.id, 10),
+            utcDate: event.date,
+            status,
+            homeTeam: {
+              id: parseInt(home.team.id, 10) || 0,
+              name: home.team.displayName,
+              crest: espnCrest(home.team),
+            },
+            awayTeam: {
+              id: parseInt(away.team.id, 10) || 0,
+              name: away.team.displayName,
+              crest: espnCrest(away.team),
+            },
+            competition: competition.name,
+            source: 'espn',
+          }
+
+          if (
+            status === 'FINISHED' &&
+            homeScore !== null &&
+            awayScore !== null
+          ) {
+            match.score = {
+              winner:
+                homeScore > awayScore
+                  ? 'HOME_TEAM'
+                  : awayScore > homeScore
+                    ? 'AWAY_TEAM'
+                    : 'DRAW',
+              duration: 'REGULAR',
+              fullTime: { home: homeScore, away: awayScore },
+            }
+            past.push(match)
+          } else {
+            upcoming.push(match)
+          }
+        })
+      } catch (error) {
+        console.error(
+          `Error fetching ${competition.name} fixtures from ESPN:`,
+          error,
+        )
+      }
+    }
+
+    console.log(
+      `✅ Extra competitions fixtures: ${upcoming.length} upcoming, ${past.length} finished`,
+    )
+    return { upcoming, past }
+  }, [])
+
   const fetchFixtures = useCallback(async () => {
     try {
       console.log('Fetching fixtures started')
@@ -267,21 +389,55 @@ export default function FixturesScreen(): React.ReactElement {
       // console.log('Upcoming Fixtures:', sunderlandUpcomingFixtures.length);
       // console.log('Past Fixtures:', sunderlandPastFixtures.length);
 
+      // Tag PL fixtures with competition info so the UI can distinguish
+      // them from Europa League matches
+      const taggedUpcomingFixtures = sunderlandUpcomingFixtures.map(
+        (match: FixtureMatch) => ({
+          ...match,
+          competition: 'Premier League',
+          source: 'football-data' as const,
+        }),
+      )
+
+      const taggedPastFixtures = sunderlandPastFixtures.map(
+        (match: FixtureMatch) => ({
+          ...match,
+          competition: 'Premier League',
+          source: 'football-data' as const,
+        }),
+      )
+
+      // Cup/European fixtures (Carabao Cup + UEFA Europa League) from ESPN's
+      // JSON API — EL is paid-tier only on football-data.org and the Carabao
+      // Cup isn't covered at all. Failures don't break PL display.
+      const extra = await fetchExtraCompetitionsFixtures()
+
+      // Merge PL + EL fixtures, sorted by date
+      const allUpcoming = [...taggedUpcomingFixtures, ...extra.upcoming].sort(
+        (a: FixtureMatch, b: FixtureMatch) =>
+          new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime(),
+      )
+
+      const allPast = [...taggedPastFixtures, ...extra.past].sort(
+        (a: FixtureMatch, b: FixtureMatch) =>
+          new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime(),
+      )
+
       // Ensure we have data
-      if (
-        sunderlandUpcomingFixtures.length === 0 &&
-        sunderlandPastFixtures.length === 0
-      ) {
+      if (allUpcoming.length === 0 && allPast.length === 0) {
         setError('No Sunderland fixtures found')
       }
 
-      setFixtures(sunderlandUpcomingFixtures)
-      setPastFixtures(sunderlandPastFixtures)
+      setFixtures(allUpcoming)
+      setPastFixtures(allPast)
 
-      // Fetch form for next match
-      if (sunderlandUpcomingFixtures.length > 0) {
-        const nextMatch = sunderlandUpcomingFixtures[0]
-        await fetchTeamsForm(nextMatch.homeTeam.id, nextMatch.awayTeam.id)
+      // Fetch form for next match (only for football-data matches — ESPN
+      // team IDs don't exist in the football-data API)
+      if (allUpcoming.length > 0) {
+        const nextMatch = allUpcoming[0]
+        if (nextMatch.source !== 'espn') {
+          await fetchTeamsForm(nextMatch.homeTeam.id, nextMatch.awayTeam.id)
+        }
       }
 
       setLoading(false)
@@ -784,10 +940,13 @@ export default function FixturesScreen(): React.ReactElement {
     ],
   )
 
-  // Calculate match statistics from fixtures data
+  // Calculate match statistics from fixtures data (PL matches only — ESPN
+  // Europa League matches use ESPN team IDs and a different competition)
   const calculateMatchStatistics = useCallback(
     (sunderlandTeamId: number): MatchStatistics => {
-      const allMatches = [...pastFixtures] // Only use completed matches
+      const allMatches = pastFixtures.filter(
+        match => match.source !== 'espn',
+      ) // Only use completed PL matches
       const sunderlandMatches = allMatches.filter(
         match =>
           (match.homeTeam.id === sunderlandTeamId ||
@@ -884,15 +1043,17 @@ export default function FixturesScreen(): React.ReactElement {
   const fetchTeamStatistics = useCallback(async () => {
     setStatsLoading(true)
     try {
-      // Get Sunderland team ID from fixtures data
+      // Get Sunderland team ID from fixtures data (football-data only —
+      // ESPN-sourced Europa League matches use ESPN team IDs)
       let sunderlandTeamId = null
 
       // Try to find Sunderland team ID from existing fixtures
       if (fixtures.length > 0) {
         const sunderlandMatch = fixtures.find(
           match =>
-            match.homeTeam.name.includes('Sunderland') ||
-            match.awayTeam.name.includes('Sunderland'),
+            match.source !== 'espn' &&
+            (match.homeTeam.name.includes('Sunderland') ||
+              match.awayTeam.name.includes('Sunderland')),
         )
         if (sunderlandMatch) {
           sunderlandTeamId = sunderlandMatch.homeTeam.name.includes(
@@ -907,8 +1068,9 @@ export default function FixturesScreen(): React.ReactElement {
       if (!sunderlandTeamId && pastFixtures.length > 0) {
         const sunderlandMatch = pastFixtures.find(
           match =>
-            match.homeTeam.name.includes('Sunderland') ||
-            match.awayTeam.name.includes('Sunderland'),
+            match.source !== 'espn' &&
+            (match.homeTeam.name.includes('Sunderland') ||
+              match.awayTeam.name.includes('Sunderland')),
         )
         if (sunderlandMatch) {
           sunderlandTeamId = sunderlandMatch.homeTeam.name.includes(
@@ -1108,8 +1270,9 @@ export default function FixturesScreen(): React.ReactElement {
 
   const openMatchDetails = async (match: FixtureMatch) => {
     try {
-      // Fetch additional match details for finished matches
-      if (match.status === 'FINISHED') {
+      // Fetch additional match details for finished football-data matches
+      // (ESPN-sourced matches aren't in the football-data API)
+      if (match.status === 'FINISHED' && match.source !== 'espn') {
         const detailedMatch = await fetchMatchDetails(match.id)
         setSelectedMatch(detailedMatch || match)
       } else {
@@ -1134,6 +1297,9 @@ export default function FixturesScreen(): React.ReactElement {
       <View style={styles.fixtureItem}>
         <View style={styles.dateContainer}>
           <Text style={styles.dateText}>{formatDate(item.utcDate)}</Text>
+          {item.competition && (
+            <Text style={styles.competitionTag}>{item.competition}</Text>
+          )}
           {!isPast && (
             <TouchableOpacity
               style={styles.reminderButton}
@@ -1879,6 +2045,16 @@ const styles = StyleSheet.create({
   dateText: {
     color: '#666',
     fontSize: 12,
+  },
+  competitionTag: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#e21d38',
+    backgroundColor: '#fdecee',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   reminderButton: {
     padding: 4,
