@@ -18,7 +18,7 @@ import { footballDataApiKey } from '../../config/config'
 import { Ionicons } from '@expo/vector-icons'
 import * as Notifications from 'expo-notifications'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { getTeamStats } from '../../utils/statsService'
+import { getTeamStats, updateTeamStats } from '../../utils/statsService'
 import { footballDataGet } from '../../utils/footballDataService'
 
 type MatchHead2Head = {
@@ -137,6 +137,18 @@ type PlayerAssist = {
   matches: number
   assistsPerMatch: number
 }
+
+// Daily cache for the ESPN stats fetch. The ESPN JSON API has no documented
+// limits but is implicitly rate-limited, and one fetch fires ~29 requests
+// (1 roster + 28 per-athlete), so we only hit it once per day. The in-memory
+// cache is a fast path for the current session; the AsyncStorage cache also
+// survives app restarts / page reloads.
+const ESPN_STATS_CACHE_TTL_MS = 24 * 60 * 60 * 1000 // once per day
+const ESPN_STATS_CACHE_KEY = 'espnTeamStatsDailyCache'
+const espnStatsCache: {
+  fetchedAt: number
+  data: { scorers: PlayerScorer[]; assists: PlayerAssist[] } | null
+} = { fetchedAt: 0, data: null }
 
 export default function FixturesScreen(): React.ReactElement {
   const [fixtures, setFixtures] = useState<FixtureMatch[]>([])
@@ -362,120 +374,278 @@ export default function FixturesScreen(): React.ReactElement {
     }
   }
 
-  // Fetch top scorers and assists from ESPN (scraping)
-  const fetchTopScorersFromESPN = useCallback(async (): Promise<{
-    scorers: PlayerScorer[]
-    assists: PlayerAssist[]
-  }> => {
-    try {
-      console.log('Fetching top scorers and assists from ESPN...')
+  // Fetch top scorers/assists from ESPN's JSON API (not the HTML page).
+  // The HTML stats page is bot-blocked (HTTP 202) for non-browser requests,
+  // but ESPN's JSON API (site.api.espn.com + sports.core.api.espn.com) is
+  // public and sends Access-Control-Allow-Origin: *, so it works on web and
+  // native. It returns real per-player goals AND assists for the whole squad.
+  const fetchTopStatsFromESPN = useCallback(
+    async (): Promise<{
+      scorers: PlayerScorer[]
+      assists: PlayerAssist[]
+    } | null> => {
+      const ESPN_TEAM_ID = 366 // Sunderland (ESPN id)
+      const ESPN_LEAGUE = 'eng.1' // English Premier League
+      const season = new Date().getFullYear()
 
-      // Fetch the ESPN stats page
-      const response = await axios.get(
-        'https://www.espn.co.uk/football/team/stats/_/id/366/sunderland',
-        {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          },
-        },
-      )
-
-      const html = response.data
-
-      // Log a sample of the HTML to help debug
-      console.log('ESPN HTML sample (first 500 chars):', html.substring(0, 500))
-      console.log(
-        'Searching for "Top Scorers" in HTML:',
-        html.includes('Top Scorers'),
-      )
-      console.log(
-        'Searching for "Top Assists" in HTML:',
-        html.includes('Top Assists'),
-      )
-
-      // Parse Top Scorers
-      const scorersMatch = html.match(/Top ScorersRKNamePG(.*?)Top Assists/s)
-      const scorers: PlayerScorer[] = []
-
-      if (scorersMatch && scorersMatch[1]) {
-        const scorersText = scorersMatch[1]
-        console.log('Raw scorers text:', scorersText.substring(0, 200))
-
-        // Parse format: "1Brian Brobbey1952Wilson Isidor214..."
-        // Pattern: rank + name + matches (2 digits) + goals (1 digit)
-        const scorerPattern = /(\d+)([A-Za-zÀ-ÿ\s'-]+?)(\d{2})(\d)/g
-        let match
-
-        while (
-          (match = scorerPattern.exec(scorersText)) !== null &&
-          scorers.length < 5
-        ) {
-          const [, , playerName, matchesPlayed, goalsScored] = match
-          const parsedMatches = parseInt(matchesPlayed)
-          const parsedGoals = parseInt(goalsScored)
-
-          scorers.push({
-            id: scorers.length + 1,
-            name: playerName.trim(),
-            goals: parsedGoals,
-            matches: parsedMatches,
-            goalsPerMatch: parsedMatches > 0 ? parsedGoals / parsedMatches : 0,
-          })
-        }
-      } else {
-        console.log('❌ Could not find Top Scorers section in HTML')
+      // Serve from cache when fresh (fast in-memory path for this session)
+      if (
+        espnStatsCache.data &&
+        Date.now() - espnStatsCache.fetchedAt < ESPN_STATS_CACHE_TTL_MS
+      ) {
+        console.log('✅ Using cached ESPN stats')
+        return espnStatsCache.data
       }
 
-      // Parse Top Assists
-      const assistsMatch = html.match(/Top AssistsRKNamePA(.*?)$/s)
-      const assists: PlayerAssist[] = []
+      // Serve from the persistent daily cache (survives app restarts)
+      try {
+        const cachedRaw = await AsyncStorage.getItem(ESPN_STATS_CACHE_KEY)
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw)
+          if (
+            cached?.data &&
+            Date.now() - (cached.fetchedAt || 0) < ESPN_STATS_CACHE_TTL_MS
+          ) {
+            console.log('✅ Using daily-cached ESPN stats (fetches once/day)')
+            espnStatsCache.fetchedAt = cached.fetchedAt
+            espnStatsCache.data = cached.data
+            return cached.data
+          }
+        }
+      } catch (error) {
+        console.error('Error reading ESPN stats daily cache:', error)
+      }
 
-      if (assistsMatch && assistsMatch[1]) {
-        const assistsText = assistsMatch[1].substring(0, 200) // Limit to avoid parsing too much
-        console.log('Raw assists text:', assistsText.substring(0, 200))
+      try {
+        const rosterResponse = await axios.get(
+          `https://site.api.espn.com/apis/site/v2/sports/soccer/${ESPN_LEAGUE}/teams/${ESPN_TEAM_ID}/roster`,
+          { timeout: 20000 },
+        )
+        const athletes = rosterResponse?.data?.athletes
+        if (!athletes || athletes.length === 0) {
+          console.log('⚠️ ESPN roster returned no athletes')
+          return null
+        }
 
-        // Parse format: "1Granit Xhaka2252Enzo Le Fée234..."
-        // Pattern: rank + name + matches (2 digits) + assists (1 digit)
-        const assistPattern = /(\d+)([A-Za-zÀ-ÿ\s'-]+?)(\d{2})(\d)/g
-        let match
+        // Fetch per-athlete stats in parallel
+        const statsResults = await Promise.all(
+          athletes.map(async (athlete: any) => {
+            try {
+              const res = await axios.get(
+                `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${ESPN_LEAGUE}/seasons/${season}/types/1/athletes/${athlete.id}/statistics`,
+                { timeout: 20000 },
+              )
+              const splits = res?.data?.splits
+              const categories: any[] = splits?.categories || []
+              const general = categories.find(c => c.name === 'general')
+              const offensive = categories.find(c => c.name === 'offensive')
+              const getStat = (cat: any, name: string): number => {
+                if (!cat || !cat.stats) return 0
+                const stat = cat.stats.find(
+                  (s: any) => s.name === name || s.abbreviation === name,
+                )
+                const v = stat ? stat.value : 0
+                return typeof v === 'number' ? v : parseInt(v, 10) || 0
+              }
+              return {
+                id: athlete.id,
+                name: athlete.displayName || athlete.fullName,
+                position:
+                  athlete.position?.abbreviation || athlete.position?.name || '',
+                appearances: getStat(general, 'appearances'),
+                goals: getStat(offensive, 'totalGoals'),
+                assists: getStat(offensive, 'goalAssists'),
+                hasStats: !!splits,
+              }
+            } catch (error) {
+              // Some athletes (e.g. never-appeared backups) have no stats row.
+              return { id: athlete.id, name: athlete.displayName, skipped: true }
+            }
+          }),
+        )
 
-        while (
-          (match = assistPattern.exec(assistsText)) !== null &&
-          assists.length < 5
-        ) {
-          const [, , playerName, matchesPlayed, assistsCount] = match
-          const parsedMatches = parseInt(matchesPlayed)
-          const parsedAssists = parseInt(assistsCount)
+        const withStats = statsResults.filter(
+          (r: any) => !r.skipped && r.appearances > 0,
+        )
 
-          assists.push({
-            id: assists.length + 1,
-            name: playerName.trim(),
-            assists: parsedAssists,
-            matches: parsedMatches,
+        // Top Scorers: everyone who has played, sorted by goals desc
+        // (includes 0-goal players, mirroring the ESPN page layout so the
+        // section always shows 5 players like Top Assists does). The tiebreak
+        // (appearances, then name) keeps the order stable.
+        const scorers: PlayerScorer[] = withStats
+          .sort(
+            (a: any, b: any) =>
+              b.goals - a.goals ||
+              b.appearances - a.appearances ||
+              a.name.localeCompare(b.name),
+          )
+          .slice(0, 5)
+          .map((p: any, index: number) => ({
+            id: index + 1,
+            name: p.name,
+            goals: p.goals,
+            matches: p.appearances,
+            goalsPerMatch:
+              p.appearances > 0 ? p.goals / p.appearances : 0,
+          }))
+
+        // Top Assists: everyone who has played, sorted by assists desc
+        // (includes 0-assist players, mirroring the ESPN page layout). If no
+        // player has an assist yet (e.g. goal was a direct free-kick), it
+        // lists the played players at 0 rather than hiding the section. The
+        // tiebreak (appearances, then name) keeps the order stable.
+        const assists: PlayerAssist[] = withStats
+          .sort(
+            (a: any, b: any) =>
+              b.assists - a.assists ||
+              b.appearances - a.appearances ||
+              a.name.localeCompare(b.name),
+          )
+          .slice(0, 5)
+          .map((p: any, index: number) => ({
+            id: index + 100,
+            name: p.name,
+            assists: p.assists,
+            matches: p.appearances,
             assistsPerMatch:
-              parsedMatches > 0 ? parsedAssists / parsedMatches : 0,
-          })
+              p.appearances > 0 ? p.assists / p.appearances : 0,
+          }))
+
+        if (scorers.length === 0 && assists.length === 0) {
+          console.log('⚠️ ESPN stats had no players with appearances')
+          return null
         }
-      } else {
-        console.log('❌ Could not find Top Assists section in HTML')
+
+        console.log(
+          '✅ Fetched Sunderland stats from ESPN JSON API:',
+          JSON.stringify({ scorers, assists }),
+        )
+
+        // Update the in-memory cache AND persist the daily cache so the
+        // ESPN fetch only happens once per day (survives restarts).
+        espnStatsCache.fetchedAt = Date.now()
+        espnStatsCache.data = { scorers, assists }
+        try {
+          await AsyncStorage.setItem(
+            ESPN_STATS_CACHE_KEY,
+            JSON.stringify({
+              fetchedAt: espnStatsCache.fetchedAt,
+              data: espnStatsCache.data,
+            }),
+          )
+        } catch (error) {
+          console.error('Error saving ESPN stats daily cache:', error)
+        }
+        return espnStatsCache.data
+      } catch (error) {
+        console.error('❌ Error fetching from ESPN JSON API:', error)
+        return null
+      }
+    },
+    [],
+  )
+// Fetch top scorers/assists from the football-data.org API.
+  // Fallback live source for scorers (web via the Cloudflare proxy + native).
+  // NOTE: its scorers endpoint only lists goal-scorers and returns assists=null
+  // for the current season, so assists should come from ESPN's JSON API.
+  const fetchTopScorersFromAPI = useCallback(
+    async (
+      sunderlandTeamId: number,
+    ): Promise<{ scorers: PlayerScorer[]; assists: PlayerAssist[] } | null> => {
+      const currentYear = new Date().getFullYear()
+      const currentMonth = new Date().getMonth() + 1
+      const seasonStartYear = currentMonth >= 8 ? currentYear : currentYear - 1
+
+      // Try leagues in order (Sunderland currently in the Premier League);
+      // covers promotion/relegation so the stats keep working each season.
+      const competitions = [
+        { id: '2021', label: 'Premier League' },
+        { id: '2016', label: 'Championship' },
+        { id: '2015', label: 'League One' },
+      ]
+
+      for (const competition of competitions) {
+        try {
+          console.log(
+            `Fetching Sunderland stats from ${competition.label} (${competition.id}) for ${seasonStartYear}-${seasonStartYear + 1}`,
+          )
+
+          const response = await footballDataGet(
+            `competitions/${competition.id}/scorers`,
+            {
+              headers: { 'X-Auth-Token': footballDataApiKey },
+              params: { season: seasonStartYear, limit: 50 },
+            },
+          )
+
+          const scorersList = response?.data?.scorers
+          if (!scorersList || scorersList.length === 0) continue
+
+          const sunderlandStats = scorersList.filter(
+            (scorer: any) =>
+              scorer.team?.id === sunderlandTeamId ||
+              (scorer.team?.name || '').includes('Sunderland'),
+          )
+
+          if (sunderlandStats.length === 0) continue
+
+          const scorers: PlayerScorer[] = [...sunderlandStats]
+            .filter((scorer: any) => (scorer.goals || 0) > 0)
+            .sort(
+              (a: any, b: any) =>
+                (b.goals || 0) - (a.goals || 0) ||
+                (a.playedMatches || 0) - (b.playedMatches || 0),
+            )
+            .slice(0, 5)
+            .map((scorer: any) => ({
+              id: scorer.player.id,
+              name: scorer.player.name,
+              goals: scorer.goals || 0,
+              matches: scorer.playedMatches || 0,
+              goalsPerMatch:
+                scorer.playedMatches > 0
+                  ? (scorer.goals || 0) / scorer.playedMatches
+                  : 0,
+            }))
+
+          const assists: PlayerAssist[] = [...sunderlandStats]
+            // No >0 filter: keep the section populated even when no player has
+            // an assist yet (mirrors ESPN, which lists players at 0 assists).
+            .sort(
+              (a: any, b: any) =>
+                (b.assists || 0) - (a.assists || 0) ||
+                (a.playedMatches || 0) - (b.playedMatches || 0),
+            )
+            .slice(0, 5)
+            .map((scorer: any) => ({
+              id: (scorer.player.id || 0) + 100,
+              name: scorer.player.name,
+              assists: scorer.assists || 0,
+              matches: scorer.playedMatches || 0,
+              assistsPerMatch:
+                scorer.playedMatches > 0
+                  ? (scorer.assists || 0) / scorer.playedMatches
+                  : 0,
+            }))
+
+          console.log(
+            '✅ Fetched Sunderland stats from API:',
+            JSON.stringify({ scorers, assists }),
+          )
+
+          return { scorers, assists }
+        } catch (error) {
+          console.error(
+            `Error fetching ${competition.label} scorers from API:`,
+            error,
+          )
+        }
       }
 
-      if (scorers.length > 0 || assists.length > 0) {
-        console.log('✅ Parsed ESPN scorers:', scorers)
-        console.log('✅ Parsed ESPN assists:', assists)
-        return { scorers, assists }
-      }
-
-      console.log(
-        '⚠️ Could not parse ESPN data - HTML structure may have changed',
-      )
-      return { scorers: [], assists: [] }
-    } catch (error) {
-      console.error('❌ Error fetching from ESPN:', error)
-      return { scorers: [], assists: [] }
-    }
-  }, [])
+      return null
+    },
+    [],
+  )
 
   const STATS_CACHE_KEY = 'lastFetchedTeamStats'
 
@@ -497,21 +667,8 @@ export default function FixturesScreen(): React.ReactElement {
     scorers: PlayerScorer[]
     assists: PlayerAssist[]
   } | null> => {
-    try {
-      const cached = await AsyncStorage.getItem(STATS_CACHE_KEY)
-      if (cached) {
-        const parsed = JSON.parse(cached)
-        if (parsed?.scorers?.length || parsed?.assists?.length) {
-          return {
-            scorers: parsed.scorers || [],
-            assists: parsed.assists || [],
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error reading cached team stats:', error)
-    }
-
+    // Prefer Firestore first — it's the synced source of truth (admin updates
+    // and live-fetch syncs both write here), so it reflects the latest data.
     try {
       const firestoreStats = await getTeamStats()
       if (
@@ -527,10 +684,25 @@ export default function FixturesScreen(): React.ReactElement {
       console.error('Error loading Firestore team stats:', error)
     }
 
+    try {
+      const cached = await AsyncStorage.getItem(STATS_CACHE_KEY)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed?.scorers?.length || parsed?.assists?.length) {
+          return {
+            scorers: parsed.scorers || [],
+            assists: parsed.assists || [],
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error reading cached team stats:', error)
+    }
+
     return null
   }, [])
 
-  // Fetch top scorers and assists from ESPN/API; keep last fetch if live sources fail
+  // Fetch top scorers and assists from live sources; keep last fetch if all fail
   const fetchTopScorers = useCallback(
     async (sunderlandTeamId: number) => {
       console.log(
@@ -545,69 +717,54 @@ export default function FixturesScreen(): React.ReactElement {
         setTopAssists(staleStats.assists)
       }
 
+      // 1) ESPN JSON API — primary live source. Returns real per-player goals
+      //    AND assists (Access-Control-Allow-Origin: * so it works on web and
+      //    native, unlike the bot-blocked ESPN HTML page).
       try {
-        const espnData = await fetchTopScorersFromESPN()
-        if (espnData.scorers.length > 0 || espnData.assists.length > 0) {
-          console.log('✅ Using ESPN data')
-          setTopScorers(espnData.scorers)
-          setTopAssists(espnData.assists)
-          await persistFetchedStats(espnData.scorers, espnData.assists)
+        const espnStats = await fetchTopStatsFromESPN()
+        if (
+          espnStats &&
+          (espnStats.scorers.length > 0 || espnStats.assists.length > 0)
+        ) {
+          console.log('✅ Using ESPN JSON API data')
+          setTopScorers(espnStats.scorers)
+          setTopAssists(espnStats.assists)
+          await persistFetchedStats(espnStats.scorers, espnStats.assists)
+          // Keep the Firestore stats doc in sync with the latest live data
+          try {
+            await updateTeamStats(espnStats.scorers, espnStats.assists)
+          } catch (error) {
+            console.error('Error syncing team stats to Firestore:', error)
+          }
           return
         }
       } catch (error) {
-        console.error('Error fetching top scorers from ESPN:', error)
+        console.error('Error fetching top stats from ESPN JSON API:', error)
       }
 
+      // 2) football-data.org API — fallback for scorers (its scorers endpoint
+      //    only lists goal-scorers, so assists are not available from it).
       try {
-        const currentYear = new Date().getFullYear()
-        const currentMonth = new Date().getMonth() + 1
-        const seasonStartYear =
-          currentMonth >= 8 ? currentYear : currentYear - 1
-
-        console.log(
-          `Fetching scorers from API for ${seasonStartYear}-${seasonStartYear + 1} season`,
-        )
-
-        const response = await footballDataGet(`competitions/2016/scorers`, {
-          headers: {
-            'X-Auth-Token': footballDataApiKey,
-          },
-          params: {
-            season: seasonStartYear,
-            limit: 15,
-          },
-        })
-
+        const apiStats = await fetchTopScorersFromAPI(sunderlandTeamId)
         if (
-          response.data &&
-          response.data.scorers &&
-          response.data.scorers.length > 0
+          apiStats &&
+          (apiStats.scorers.length > 0 || apiStats.assists.length > 0)
         ) {
-          const sunderlandScorers = response.data.scorers
-            .filter((scorer: any) => scorer.team.id === sunderlandTeamId)
-            .map((scorer: any) => ({
-              id: scorer.player.id,
-              name: scorer.player.name,
-              goals: scorer.goals || 0,
-              matches: scorer.playedMatches || 0,
-              goalsPerMatch:
-                scorer.playedMatches > 0
-                  ? scorer.goals / scorer.playedMatches
-                  : 0,
-            }))
-
-          console.log(
-            'Fetched Sunderland top scorers from API:',
-            sunderlandScorers,
-          )
-
-          if (sunderlandScorers.length > 0) {
-            const assists = staleStats?.assists || []
-            setTopScorers(sunderlandScorers)
-            setTopAssists(assists)
-            await persistFetchedStats(sunderlandScorers, assists)
-            return
+          console.log('✅ Using football-data.org API data')
+          const assists =
+            apiStats.assists.length > 0
+              ? apiStats.assists
+              : staleStats?.assists || []
+          setTopScorers(apiStats.scorers)
+          setTopAssists(assists)
+          await persistFetchedStats(apiStats.scorers, assists)
+          // Keep the Firestore stats doc in sync with the latest live data
+          try {
+            await updateTeamStats(apiStats.scorers, assists)
+          } catch (error) {
+            console.error('Error syncing team stats to Firestore:', error)
           }
+          return
         }
       } catch (error) {
         console.error('Error fetching top scorers from API:', error)
@@ -619,7 +776,12 @@ export default function FixturesScreen(): React.ReactElement {
         console.log('No live or stale stats available')
       }
     },
-    [fetchTopScorersFromESPN, loadStaleStats, persistFetchedStats],
+    [
+      fetchTopScorersFromAPI,
+      fetchTopStatsFromESPN,
+      loadStaleStats,
+      persistFetchedStats,
+    ],
   )
 
   // Calculate match statistics from fixtures data
@@ -1553,12 +1715,14 @@ export default function FixturesScreen(): React.ReactElement {
                   {topAssists.length > 0 && (
                     <View style={styles.statsSection}>
                       <View style={styles.sectionHeader}>
-                        <Ionicons
-                          name='hand-left-outline'
-                          size={24}
-                          color='#e21d38'
-                        />
-                        <Text style={styles.sectionTitle}>Top Assists</Text>
+                        <View style={styles.sectionTitleContainer}>
+                          <Ionicons
+                            name='hand-left-outline'
+                            size={24}
+                            color='#e21d38'
+                          />
+                          <Text style={styles.sectionTitle}>Top Assists</Text>
+                        </View>
                       </View>
                       {topAssists.map((assist, index) => (
                         <View key={assist.id} style={styles.scorerCard}>

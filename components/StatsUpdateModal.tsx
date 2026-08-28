@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,15 +12,32 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { updateTeamStats, PlayerScorer, PlayerAssist } from '../utils/statsService';
+import { getTeamStats, updateTeamStats, PlayerScorer, PlayerAssist } from '../utils/statsService';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
 };
 
+const createEmptyScorers = (): PlayerScorer[] => [
+  { id: 1, name: '', goals: 0, matches: 0, goalsPerMatch: 0 },
+  { id: 2, name: '', goals: 0, matches: 0, goalsPerMatch: 0 },
+  { id: 3, name: '', goals: 0, matches: 0, goalsPerMatch: 0 },
+  { id: 4, name: '', goals: 0, matches: 0, goalsPerMatch: 0 },
+  { id: 5, name: '', goals: 0, matches: 0, goalsPerMatch: 0 },
+];
+
+const createEmptyAssists = (): PlayerAssist[] => [
+  { id: 1, name: '', assists: 0, matches: 0, assistsPerMatch: 0 },
+  { id: 2, name: '', assists: 0, matches: 0, assistsPerMatch: 0 },
+  { id: 3, name: '', assists: 0, matches: 0, assistsPerMatch: 0 },
+  { id: 4, name: '', assists: 0, matches: 0, assistsPerMatch: 0 },
+  { id: 5, name: '', assists: 0, matches: 0, assistsPerMatch: 0 },
+];
+
 export default function StatsUpdateModal({ visible, onClose }: Props) {
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
   
   // Top Scorers
   const [scorers, setScorers] = useState<PlayerScorer[]>([
@@ -39,6 +56,68 @@ export default function StatsUpdateModal({ visible, onClose }: Props) {
     { id: 4, name: '', assists: 0, matches: 0, assistsPerMatch: 0 },
     { id: 5, name: '', assists: 0, matches: 0, assistsPerMatch: 0 },
   ]);
+
+  // Load the current stats from Firestore whenever the modal opens so
+  // admins always edit the latest data (not stale/empty defaults)
+  useEffect(() => {
+    if (!visible) return;
+
+    let isActive = true;
+
+    const loadCurrentStats = async () => {
+      setFetching(true);
+      try {
+        const stats = await getTeamStats();
+        if (!isActive) return;
+
+        if (stats && (stats.scorers.length > 0 || stats.assists.length > 0)) {
+          const loadedScorers = createEmptyScorers().map((scorer, index) =>
+            stats.scorers[index]
+              ? {
+                  ...scorer,
+                  ...stats.scorers[index],
+                  goalsPerMatch:
+                    stats.scorers[index].matches > 0
+                      ? stats.scorers[index].goals / stats.scorers[index].matches
+                      : 0,
+                }
+              : scorer,
+          );
+          const loadedAssists = createEmptyAssists().map((assist, index) =>
+            stats.assists[index]
+              ? {
+                  ...assist,
+                  ...stats.assists[index],
+                  assistsPerMatch:
+                    stats.assists[index].matches > 0
+                      ? stats.assists[index].assists /
+                        stats.assists[index].matches
+                      : 0,
+                }
+              : assist,
+          );
+          setScorers(loadedScorers);
+          setAssists(loadedAssists);
+        } else {
+          setScorers(createEmptyScorers());
+          setAssists(createEmptyAssists());
+        }
+      } catch (error) {
+        console.error('Error loading current stats into modal:', error);
+        if (!isActive) return;
+        setScorers(createEmptyScorers());
+        setAssists(createEmptyAssists());
+      } finally {
+        if (isActive) setFetching(false);
+      }
+    };
+
+    loadCurrentStats();
+
+    return () => {
+      isActive = false;
+    };
+  }, [visible]);
 
   const updateScorer = (index: number, field: keyof PlayerScorer, value: string | number) => {
     const newScorers = [...scorers];
@@ -73,6 +152,8 @@ export default function StatsUpdateModal({ visible, onClose }: Props) {
   };
 
   const handleSave = async () => {
+    if (fetching) return;
+
     // Filter out empty entries
     const validScorers = scorers.filter(s => s.name.trim() !== '');
     const validAssists = assists.filter(a => a.name.trim() !== '');
@@ -171,11 +252,20 @@ export default function StatsUpdateModal({ visible, onClose }: Props) {
           </View>
         </ScrollView>
 
+        {fetching && (
+          <View style={styles.contentLoadingOverlay}>
+            <ActivityIndicator size="large" color="#e21d38" />
+            <Text style={styles.contentLoadingText}>
+              Loading current stats...
+            </Text>
+          </View>
+        )}
+
         <View style={styles.footer}>
           <TouchableOpacity
-            style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+            style={[styles.saveButton, (loading || fetching) && styles.saveButtonDisabled]}
             onPress={handleSave}
-            disabled={loading}
+            disabled={loading || fetching}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -293,5 +383,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  contentLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(245, 245, 245, 0.92)',
+  },
+  contentLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
   },
 });
