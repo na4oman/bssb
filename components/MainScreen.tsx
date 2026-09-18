@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Platform,
   StyleSheet,
@@ -13,14 +13,25 @@ interface MainScreenProps {
 }
 
 const MainScreen: React.FC<MainScreenProps> = ({ onModalPress }) => {
+  const [hovered, setHovered] = useState(false)
+
   return (
     <>
       {Platform.OS !== 'web' && <NotificationHandler />}
-      <View style={styles.container}>
-        <TouchableOpacity style={styles.addButton} onPress={onModalPress}>
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Hide the floating FAB on web — the events tab renders an inline
+          "Create Event" button instead (more natural for desktop). */}
+      {Platform.OS !== 'web' && (
+        <View style={styles.container}>
+          <TouchableOpacity
+            style={[styles.addButton, hovered && styles.addButtonHovered]}
+            onPress={onModalPress}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+          >
+            <Text style={styles.addButtonText}>+</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </>
   )
 }
@@ -50,6 +61,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5, // Elevation is for Android
+    transition: 'background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease',
+  },
+  addButtonHovered: {
+    backgroundColor: '#c0142e',
+    transform: [{ scale: 1.08 }],
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
   },
   addButtonText: {
     fontSize: 30,

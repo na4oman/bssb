@@ -7,13 +7,17 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { format } from 'date-fns';
+import LoadingState from '../components/LoadingState';
+import EmptyState from '../components/EmptyState';
+import WebHeader from '../components/WebHeader';
+import PageTitle from '../components/PageTitle';
+import { isWeb, maxWidthContent } from '../utils/platformStyles';
 import {
   subscribeToUsers,
   toggleUserPaidStatus,
@@ -23,7 +27,7 @@ import {
 } from '../utils/userService';
 
 export default function UsersScreen() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
@@ -33,8 +37,12 @@ export default function UsersScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'unpaid'>('all');
 
-  // Check if current user is admin
+  // Check if current user is admin.
+  // Guarded on authLoading so we never navigate before the root layout mounts
+  // (e.g. on a direct URL load while the session is still being restored).
   useEffect(() => {
+    if (authLoading) return;
+
     if (user) {
       checkIsUserAdmin(user.uid).then((admin) => {
         setIsAdmin(admin);
@@ -49,7 +57,7 @@ export default function UsersScreen() {
     } else {
       router.replace('/(auth)/login');
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   // Subscribe to users
   useEffect(() => {
@@ -202,10 +210,7 @@ export default function UsersScreen() {
   if (checkingAdmin) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#e21d38" />
-          <Text style={styles.loadingText}>Checking permissions...</Text>
-        </View>
+        <LoadingState text='Checking permissions...' />
       </SafeAreaView>
     );
   }
@@ -216,16 +221,23 @@ export default function UsersScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Users Management</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      {/* Header: shared web header on desktop, back-arrow header on mobile */}
+      {isWeb ? (
+        <WebHeader />
+      ) : (
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Users Management</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+      )}
 
-      {/* Stats */}
+      <View style={[styles.content, isWeb && styles.contentWeb]}>
+        {isWeb && <PageTitle title='Users Management' />}
+
+        {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statBox}>
           <Text style={styles.statNumber}>{users.length}</Text>
@@ -292,10 +304,7 @@ export default function UsersScreen() {
 
       {/* Users List */}
       {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#e21d38" />
-          <Text style={styles.loadingText}>Loading users...</Text>
-        </View>
+        <LoadingState text='Loading users...' />
       ) : filteredUsers.length > 0 ? (
         <FlatList
           data={filteredUsers}
@@ -305,14 +314,17 @@ export default function UsersScreen() {
           showsVerticalScrollIndicator={false}
         />
       ) : (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="search-outline" size={64} color="#ccc" />
-          <Text style={styles.emptyText}>No users found</Text>
-          <Text style={styles.emptySubtext}>
-            {searchQuery ? 'Try a different search term' : 'No users match the selected filter'}
-          </Text>
-        </View>
+        <EmptyState
+          icon="search-outline"
+          title="No users found"
+          subtitle={
+            searchQuery
+              ? 'Try a different search term'
+              : 'No users match the selected filter'
+          }
+        />
       )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -321,6 +333,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  content: {
+    flex: 1,
+  },
+  contentWeb: {
+    ...maxWidthContent,
+    width: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -340,16 +359,6 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 40,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -437,24 +446,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 15,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#999',
-    marginTop: 15,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#bbb',
-    marginTop: 5,
-    textAlign: 'center',
   },
   userCard: {
     backgroundColor: 'white',

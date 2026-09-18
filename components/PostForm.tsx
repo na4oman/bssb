@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { getCurrentUser } from '../utils/userUtils';
 import { createPost } from '../utils/postService';
+import { COLORS, RADIUS, FONT, SHADOW } from '../constants/theme';
 
 type PostFormProps = {
   onClose: () => void;
@@ -65,7 +66,7 @@ export default function PostForm({ onClose, onSuccess }: PostFormProps) {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={28} color="#333" />
+          <Ionicons name="close" size={28} color={COLORS.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Post</Text>
         <TouchableOpacity
@@ -111,10 +112,13 @@ export default function PostForm({ onClose, onSuccess }: PostFormProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.xl,
+    width: '90%',
+    maxWidth: 500,
+    alignSelf: 'center',
     maxHeight: '90%',
+    ...SHADOW.heavy,
   },
   header: {
     flexDirection: 'row',
@@ -122,51 +126,51 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: COLORS.border,
   },
   closeButton: {
     padding: 5,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: FONT.size.lg,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.text,
   },
   submitButton: {
-    backgroundColor: '#e21d38',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 20,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: RADIUS.xl,
     minWidth: 70,
     alignItems: 'center',
   },
   submitButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: COLORS.disabled,
   },
   submitButtonText: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: FONT.size.md,
   },
   form: {
     padding: 15,
   },
   titleInput: {
-    fontSize: 20,
+    fontSize: FONT.size.xl,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.text,
     borderBottomWidth: 2,
-    borderBottomColor: '#e21d38',
+    borderBottomColor: COLORS.primary,
     paddingVertical: 10,
     marginBottom: 20,
   },
   contentInput: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: FONT.size.md,
+    color: COLORS.text,
     minHeight: 200,
     padding: 15,
     backgroundColor: '#f9f9f9',
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     marginBottom: 20,
   },
 });

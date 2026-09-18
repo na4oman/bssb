@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { formatDistanceToNow } from 'date-fns'
 import { useAuth } from '../contexts/AuthContext'
+import { isWeb, maxWidthCard } from '../utils/platformStyles'
 import {
   subscribeToNotifications,
   markNotificationRead,
@@ -80,6 +81,7 @@ const NotificationBadge = () => {
       <TouchableOpacity
         style={styles.bellContainer}
         onPress={() => setModalVisible(true)}
+        accessibilityRole='button'
         accessibilityLabel='Notifications'
       >
         <Ionicons name='notifications-outline' size={22} color='#fff' />
@@ -99,13 +101,13 @@ const NotificationBadge = () => {
         animationType='slide'
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, isWeb && styles.modalOverlayWeb]}>
           <TouchableOpacity
             style={styles.backdrop}
             activeOpacity={1}
             onPress={() => setModalVisible(false)}
           />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, isWeb && styles.sheetWeb]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>Notifications</Text>
               {unreadCount > 0 && (
@@ -217,6 +219,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
   },
+  modalOverlayWeb: {
+    alignItems: 'center',
+  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -228,6 +233,10 @@ const styles = StyleSheet.create({
     maxHeight: '75%',
     minHeight: 200,
     paddingBottom: 30,
+  },
+  sheetWeb: {
+    ...maxWidthCard,
+    width: '100%',
   },
   sheetHeader: {
     flexDirection: 'row',

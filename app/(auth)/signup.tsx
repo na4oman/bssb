@@ -15,6 +15,7 @@ import {
 import { Link, router } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
 import { Ionicons } from '@expo/vector-icons'
+import { isWeb, maxWidthAuth } from '../../utils/platformStyles'
 
 const LogoImage = require('../../assets/images/logo.jpg')
 
@@ -76,7 +77,7 @@ export default function SignupScreen() {
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.content}>
+          <View style={[styles.content, isWeb && styles.contentWeb]}>
             {/* Logo and Title */}
             <View style={styles.header}>
               <Image source={LogoImage} style={styles.logo} resizeMode="contain" />
@@ -207,6 +208,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 30,
     paddingVertical: 20,
+  },
+  contentWeb: {
+    ...maxWidthAuth,
+    width: '100%',
   },
   header: {
     alignItems: 'center',

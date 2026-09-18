@@ -101,8 +101,7 @@ bssb/
 │   ├── EventDetailsModal.tsx
 │   ├── PostDetailsModal.tsx
 │   ├── HamburgerMenu.tsx
-│   ├── NotificationSettings.tsx
-│   └── StatsUpdateModal.tsx
+│   └── NotificationSettings.tsx
 ├── contexts/                     # React Context providers
 │   └── AuthContext.tsx
 ├── utils/                        # Utility functions & services

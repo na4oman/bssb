@@ -12,12 +12,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { router } from 'expo-router';
 import { checkIsUserAdmin } from '../utils/userService';
-import StatsUpdateModal from './StatsUpdateModal';
+import { isWeb } from '../utils/platformStyles';
 
 const HamburgerMenu = () => {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
-  const [showStatsModal, setShowStatsModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const { user, signOut } = useAuth();
 
   // Check if user is admin
@@ -44,15 +44,6 @@ const HamburgerMenu = () => {
       onPress: () => {
         setIsMenuVisible(false);
         router.push('/users');
-      },
-      isAdminOnly: true,
-    }, {
-      id: 'updateStats',
-      title: 'Update Team Stats',
-      icon: 'stats-chart-outline',
-      onPress: () => {
-        setIsMenuVisible(false);
-        setShowStatsModal(true);
       },
       isAdminOnly: true,
     }] : []),
@@ -103,6 +94,8 @@ const HamburgerMenu = () => {
       <TouchableOpacity
         onPress={() => setIsMenuVisible(true)}
         style={styles.menuButton}
+        accessibilityRole='button'
+        accessibilityLabel='Open menu'
       >
         <Ionicons name="menu" size={28} color="white" />
       </TouchableOpacity>
@@ -117,7 +110,7 @@ const HamburgerMenu = () => {
           style={styles.modalOverlay}
           onPress={() => setIsMenuVisible(false)}
         >
-          <View style={styles.menuContainer}>
+          <View style={[styles.menuContainer, isWeb && styles.menuContainerWeb]}>
             <View style={styles.menuHeader}>
               <Text style={styles.menuHeaderText}>Menu</Text>
               <TouchableOpacity
@@ -135,14 +128,17 @@ const HamburgerMenu = () => {
 
             <ScrollView style={styles.menuItems}>
               {menuItems.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[
-                    styles.menuItem,
-                    (item as any).isAdminOnly && styles.adminMenuItem
-                  ]}
-                  onPress={item.onPress}
-                >
+<TouchableOpacity
+                key={item.id}
+                style={[
+                  styles.menuItem,
+                  (item as any).isAdminOnly && styles.adminMenuItem,
+                  hoveredItem === item.id && styles.menuItemHovered,
+                ]}
+                onPress={item.onPress}
+                onMouseEnter={() => setHoveredItem(item.id)}
+                onMouseLeave={() => setHoveredItem(null)}
+              >
                   <Ionicons
                     name={item.icon as any}
                     size={24}
@@ -171,12 +167,6 @@ const HamburgerMenu = () => {
           </View>
         </Pressable>
       </Modal>
-
-      {/* Stats Update Modal */}
-      <StatsUpdateModal
-        visible={showStatsModal}
-        onClose={() => setShowStatsModal(false)}
-      />
     </>
   );
 };
@@ -203,6 +193,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  menuContainerWeb: {
+    width: '100%',
+    maxWidth: 360,
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
   },
   menuHeader: {
     flexDirection: 'row',
@@ -242,9 +238,13 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    transition: 'background-color 0.15s ease',
   },
   adminMenuItem: {
     backgroundColor: '#FFF3E0',
+  },
+  menuItemHovered: {
+    backgroundColor: '#f0f0f0',
   },
   menuItemText: {
     marginLeft: 15,

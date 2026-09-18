@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Linking,
   Button,
-  ActivityIndicator,
   ScrollView,
 } from 'react-native'
 import { format, differenceInDays } from 'date-fns'
@@ -17,8 +16,12 @@ import axios from 'axios'
 import Constants from 'expo-constants'
 import { newsApiKey } from '../../config/config'
 import { LinearGradient } from 'expo-linear-gradient'
+import { COLORS, SHADOW } from '../../constants/theme'
 import { Ionicons } from '@expo/vector-icons'
 import { isWeb, maxWidthContent } from '../../utils/platformStyles'
+import LoadingState from '../../components/LoadingState'
+import EmptyState from '../../components/EmptyState'
+import SkeletonList from '../../components/SkeletonList'
 
 type NewsItem = {
   id: string
@@ -27,6 +30,47 @@ type NewsItem = {
   imageUrl: string
   summary: string
   url: string
+}
+
+interface NewsCardProps {
+  item: NewsItem
+  onPress: () => void
+}
+
+const NewsCard: React.FC<NewsCardProps> = ({ item, onPress }) => {
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={[
+        styles.newsItem,
+        isWeb && styles.newsItemWeb,
+        isWeb && hovered && styles.newsItemHovered,
+      ]}
+    >
+      <Image
+        source={{ uri: item.imageUrl }}
+        style={[styles.newsImage, isWeb && styles.newsImageWeb]}
+      />
+      <View
+        style={[
+          styles.newsTextContainer,
+          isWeb && styles.newsTextContainerWeb,
+        ]}
+      >
+        <Text style={styles.newsTitle} numberOfLines={2}>
+          {item.title}
+        </Text>
+        <Text style={styles.newsDate}>{format(item.date, 'dd MMM yyyy')}</Text>
+        <Text style={styles.newsSummary} numberOfLines={2}>
+          {item.summary}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  )
 }
 
 interface MatchResult {
@@ -248,17 +292,21 @@ export default function NewsScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size='large' color='#e21d38' />
-      </View>
+    return isWeb ? (
+      <SkeletonList count={3} />
+    ) : (
+      <LoadingState text='Loading news...' />
     )
   }
 
   if (displayedNews.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>No news articles found</Text>
+        <EmptyState
+          icon='newspaper-outline'
+          title='No news articles found'
+          subtitle='Check back later for updates'
+        />
       </View>
     )
   }
@@ -290,31 +338,7 @@ export default function NewsScreen() {
           isWeb && styles.newsListContentWeb,
         ]}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => openArticle(item.url)}
-            style={[styles.newsItem, isWeb && styles.newsItemWeb]}
-          >
-            <Image
-              source={{ uri: item.imageUrl }}
-              style={[styles.newsImage, isWeb && styles.newsImageWeb]}
-            />
-            <View
-              style={[
-                styles.newsTextContainer,
-                isWeb && styles.newsTextContainerWeb,
-              ]}
-            >
-              <Text style={styles.newsTitle} numberOfLines={2}>
-                {item.title}
-              </Text>
-              <Text style={styles.newsDate}>
-                {format(item.date, 'dd MMM yyyy')}
-              </Text>
-              <Text style={styles.newsSummary} numberOfLines={2}>
-                {item.summary}
-              </Text>
-            </View>
-          </TouchableOpacity>
+          <NewsCard item={item} onPress={() => openArticle(item.url)} />
         )}
         ListFooterComponent={
           news.length > 5 && displayedNews.length < news.length ? (
@@ -348,6 +372,15 @@ const styles = StyleSheet.create({
     width: '100%',
     marginHorizontal: 'auto',
     minHeight: 150,
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+  },
+  newsItemHovered: {
+    shadowColor: '#182230',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 10,
+    transform: [{ translateY: -2 }],
   },
   newsImage: {
     width: '100%',
@@ -358,6 +391,7 @@ const styles = StyleSheet.create({
   },
   newsListContentWeb: {
     ...maxWidthContent,
+    width: '100%',
     paddingVertical: 24,
   },
   newsImageWeb: {
@@ -375,7 +409,7 @@ const styles = StyleSheet.create({
   newsTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#e21d38',
+    color: '#333',
     marginBottom: 5,
   },
   newsDate: {
@@ -407,8 +441,7 @@ const styles = StyleSheet.create({
     marginRight: 15,
     width: 320,
     height: 130,
-    boxShadow: '0 4px 4px rgba(0, 0, 0, 0.1)',
-    elevation: 3,
+    ...SHADOW.card,
     overflow: 'hidden',
     backgroundColor: 'transparent',
   },
@@ -453,10 +486,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 10,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 10,
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-    elevation: 3,
+    ...SHADOW.card,
     marginBottom: 10,
   },
   cacheClearButtonText: {

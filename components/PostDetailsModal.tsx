@@ -15,6 +15,8 @@ import { Post } from '../types/post';
 import { useAuth } from '../contexts/AuthContext';
 import { getCurrentUser } from '../utils/userUtils';
 import { togglePostLike, addPostComment, subscribeToPost } from '../utils/postService';
+import { isWeb } from '../utils/platformStyles';
+import { COLORS, RADIUS } from '../constants/theme';
 
 interface PostDetailsModalProps {
   post: Post;
@@ -85,12 +87,15 @@ export default function PostDetailsModal({ post: initialPost, visible, onClose }
     <Modal
       isVisible={visible}
       onBackdropPress={onClose}
-      style={styles.modal}
+      style={[styles.modal, isWeb && styles.modalWeb]}
       backdropOpacity={0.5}
-      animationIn="slideInUp"
-      animationOut="slideOutDown"
+      animationIn={isWeb ? 'fadeIn' : 'slideInUp'}
+      animationOut={isWeb ? 'fadeOut' : 'slideOutDown'}
     >
-      <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={[styles.modalContent, isWeb && styles.modalContentWeb]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header with Close Button */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
@@ -216,9 +221,20 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     margin: 0,
   },
+  modalWeb: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: COLORS.card,
     maxHeight: '90%',
+  },
+  modalContentWeb: {
+    width: '100%',
+    maxWidth: 640,
+    maxHeight: '85%',
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
   },
   header: {
     position: 'absolute',

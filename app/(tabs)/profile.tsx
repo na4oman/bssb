@@ -24,14 +24,21 @@ import { updateProfile } from 'firebase/auth'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../../config/firebase'
 import NotificationSettings from '../../components/NotificationSettings'
+import LoadingState from '../../components/LoadingState'
+import EmptyState from '../../components/EmptyState'
+import PageTitle from '../../components/PageTitle'
+import DeleteAccountModal from '../../components/DeleteAccountModal'
+import { isWeb, maxWidthCard } from '../../utils/platformStyles'
 
 const DEFAULT_AVATAR = 'https://via.placeholder.com/100x100.png?text=User'
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth()
+  const { user, logout, loading: authLoading } = useAuth()
   const currentUser = getCurrentUser(user)
-  
-  const [displayName, setDisplayName] = useState(user?.displayName || currentUser.userName)
+
+  const [displayName, setDisplayName] = useState(
+    user?.displayName || currentUser.userName,
+  )
   const [email] = useState(user?.email || '')
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -41,23 +48,24 @@ export default function ProfileScreen() {
   const [postsLoading, setPostsLoading] = useState(true)
   const [userPaidStatus, setUserPaidStatus] = useState(false)
   const [loadingPaidStatus, setLoadingPaidStatus] = useState(true)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
-  // Redirect to login if user becomes null (logged out)
+  // Redirect to login if user becomes null (logged out).
+  // Guarded on authLoading so we never navigate before the root layout mounts
+  // (e.g. on a direct URL load while the session is still being restored).
   useEffect(() => {
-    console.log('Profile screen - user state changed:', user ? 'logged in' : 'logged out')
-    if (!user) {
-      console.log('User is null, redirecting to login...')
+    if (!authLoading && !user) {
       router.replace('/(auth)/login')
     }
-  }, [user])
+  }, [user, authLoading])
 
   // Load user's created events
   useEffect(() => {
     if (user) {
-      const unsubscribe = subscribeToEvents((allEvents) => {
+      const unsubscribe = subscribeToEvents(allEvents => {
         // Filter events created by current user
-        const myEvents = allEvents.filter(event => 
-          event.createdBy.userId === user.uid
+        const myEvents = allEvents.filter(
+          event => event.createdBy.userId === user.uid,
         )
         setUserEvents(myEvents)
         setEventsLoading(false)
@@ -70,9 +78,9 @@ export default function ProfileScreen() {
   // Load user's created posts
   useEffect(() => {
     if (user) {
-      const unsubscribe = subscribeToPosts((allPosts) => {
-        const myPosts = allPosts.filter(post => 
-          post.createdBy.userId === user.uid
+      const unsubscribe = subscribeToPosts(allPosts => {
+        const myPosts = allPosts.filter(
+          post => post.createdBy.userId === user.uid,
         )
         setUserPosts(myPosts)
         setPostsLoading(false)
@@ -86,7 +94,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (user) {
       const userRef = doc(db, 'users', user.uid)
-      const unsubscribe = onSnapshot(userRef, (doc) => {
+      const unsubscribe = onSnapshot(userRef, doc => {
         if (doc.exists()) {
           const data = doc.data()
           setUserPaidStatus(data.paid || false)
@@ -107,7 +115,7 @@ export default function ProfileScreen() {
     try {
       setLoading(true)
       await updateProfile(user, {
-        displayName: displayName.trim()
+        displayName: displayName.trim(),
       })
       setIsEditing(false)
       Alert.alert('Success', 'Profile updated successfully!')
@@ -119,31 +127,27 @@ export default function ProfileScreen() {
   }
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Logout', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('Starting logout process...')
-              await logout()
-              // Don't clear stored credentials to preserve Samsung Pass data
-              // This allows native password managers to maintain saved credentials
-              console.log('Logout successful, redirecting to login...')
-              // Explicitly redirect to login screen
-              router.replace('/(auth)/login')
-            } catch (error) {
-              console.error('Logout error:', error)
-              Alert.alert('Error', 'Failed to logout. Please try again.')
-            }
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            console.log('Starting logout process...')
+            await logout()
+            // Don't clear stored credentials to preserve Samsung Pass data
+            // This allows native password managers to maintain saved credentials
+            console.log('Logout successful, redirecting to login...')
+            // Explicitly redirect to login screen
+            router.replace('/(auth)/login')
+          } catch (error) {
+            console.error('Logout error:', error)
+            Alert.alert('Error', 'Failed to logout. Please try again.')
           }
-        }
-      ]
-    )
+        },
+      },
+    ])
   }
 
   const handleDeleteEvent = (eventId: string, eventTitle: string) => {
@@ -162,9 +166,9 @@ export default function ProfileScreen() {
             } catch (error: any) {
               Alert.alert('Error', error.message || 'Failed to delete event')
             }
-          }
-        }
-      ]
+          },
+        },
+      ],
     )
   }
 
@@ -186,9 +190,9 @@ export default function ProfileScreen() {
             } catch (error: any) {
               Alert.alert('Error', error.message || 'Failed to delete post')
             }
-          }
-        }
-      ]
+          },
+        },
+      ],
     )
   }
 
@@ -205,7 +209,7 @@ export default function ProfileScreen() {
           style={styles.deleteButton}
           onPress={() => handleDeleteEvent(item.id, item.title)}
         >
-          <Ionicons name="trash-outline" size={20} color="#e21d38" />
+          <Ionicons name='trash-outline' size={20} color='#e21d38' />
         </TouchableOpacity>
       </View>
       <Text style={styles.eventLocation}>{item.location}</Text>
@@ -214,15 +218,15 @@ export default function ProfileScreen() {
       </Text>
       <View style={styles.eventStats}>
         <View style={styles.statItem}>
-          <Ionicons name="heart" size={16} color="#e21d38" />
+          <Ionicons name='heart' size={16} color='#e21d38' />
           <Text style={styles.statText}>{item.likes.length}</Text>
         </View>
         <View style={styles.statItem}>
-          <Ionicons name="chatbubble" size={16} color="#666" />
+          <Ionicons name='chatbubble' size={16} color='#666' />
           <Text style={styles.statText}>{item.comments.length}</Text>
         </View>
         <View style={styles.statItem}>
-          <Ionicons name="people" size={16} color="#666" />
+          <Ionicons name='people' size={16} color='#666' />
           <Text style={styles.statText}>{item.attendees.length}</Text>
         </View>
       </View>
@@ -242,7 +246,7 @@ export default function ProfileScreen() {
           style={styles.deleteButton}
           onPress={() => handleDeletePost(item.id, item.title)}
         >
-          <Ionicons name="trash-outline" size={20} color="#e21d38" />
+          <Ionicons name='trash-outline' size={20} color='#e21d38' />
         </TouchableOpacity>
       </View>
       <Text style={styles.postContent} numberOfLines={3}>
@@ -250,11 +254,11 @@ export default function ProfileScreen() {
       </Text>
       <View style={styles.postStats}>
         <View style={styles.statItem}>
-          <Ionicons name="heart" size={16} color="#e21d38" />
+          <Ionicons name='heart' size={16} color='#e21d38' />
           <Text style={styles.statText}>{item.likes.length}</Text>
         </View>
         <View style={styles.statItem}>
-          <Ionicons name="chatbubble" size={16} color="#666" />
+          <Ionicons name='chatbubble' size={16} color='#666' />
           <Text style={styles.statText}>{item.comments.length}</Text>
         </View>
       </View>
@@ -263,11 +267,16 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={isWeb && styles.scrollViewContentWeb}
+      >
+        {isWeb && <PageTitle title='Profile' />}
+
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <Image 
-            source={{ uri: user?.photoURL || DEFAULT_AVATAR }} 
+          <Image
+            source={{ uri: user?.photoURL || DEFAULT_AVATAR }}
             style={styles.avatar}
           />
           <View style={styles.profileInfo}>
@@ -277,7 +286,7 @@ export default function ProfileScreen() {
                   style={styles.editInput}
                   value={displayName}
                   onChangeText={setDisplayName}
-                  placeholder="Display Name"
+                  placeholder='Display Name'
                   autoFocus
                 />
                 <View style={styles.editButtons}>
@@ -309,7 +318,7 @@ export default function ProfileScreen() {
                     style={styles.editIcon}
                     onPress={() => setIsEditing(true)}
                   >
-                    <Ionicons name="pencil" size={20} color="#666" />
+                    <Ionicons name='pencil' size={20} color='#666' />
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.email}>{email}</Text>
@@ -322,11 +331,12 @@ export default function ProfileScreen() {
         {!loadingPaidStatus && userPaidStatus && (
           <View style={styles.confirmationBanner}>
             <View style={styles.bannerContent}>
-              <Ionicons name="checkmark-circle" size={32} color="#4CAF50" />
+              <Ionicons name='checkmark-circle' size={32} color='#4CAF50' />
               <View style={styles.bannerText}>
                 <Text style={styles.bannerTitle}>✅ Payment Confirmed!</Text>
                 <Text style={styles.bannerMessage}>
-                  Your membership payment has been confirmed. Thank you for your support!
+                  Your membership payment has been confirmed. Thank you for your
+                  support!
                 </Text>
               </View>
             </View>
@@ -345,8 +355,11 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>
-              {userEvents.reduce((total, event) => total + event.likes.length, 0) +
-               userPosts.reduce((total, post) => total + post.likes.length, 0)}
+              {userEvents.reduce(
+                (total, event) => total + event.likes.length,
+                0,
+              ) +
+                userPosts.reduce((total, post) => total + post.likes.length, 0)}
             </Text>
             <Text style={styles.statLabel}>Total Likes</Text>
           </View>
@@ -357,17 +370,23 @@ export default function ProfileScreen() {
           <View style={styles.membershipContainer}>
             <View style={styles.membershipCard}>
               <View style={styles.membershipHeader}>
-                <Ionicons 
-                  name={userPaidStatus ? 'checkmark-circle' : 'alert-circle-outline'} 
-                  size={24} 
-                  color={userPaidStatus ? '#4CAF50' : '#FF9800'} 
+                <Ionicons
+                  name={
+                    userPaidStatus ? 'checkmark-circle' : 'alert-circle-outline'
+                  }
+                  size={24}
+                  color={userPaidStatus ? '#4CAF50' : '#FF9800'}
                 />
                 <Text style={styles.membershipTitle}>Membership Status</Text>
               </View>
-              <View style={[
-                styles.membershipBadge,
-                userPaidStatus ? styles.membershipBadgePaid : styles.membershipBadgeUnpaid
-              ]}>
+              <View
+                style={[
+                  styles.membershipBadge,
+                  userPaidStatus
+                    ? styles.membershipBadgePaid
+                    : styles.membershipBadgeUnpaid,
+                ]}
+              >
                 <Text style={styles.membershipBadgeText}>
                   {userPaidStatus ? '✓ Paid' : 'Pending Payment'}
                 </Text>
@@ -388,23 +407,22 @@ export default function ProfileScreen() {
         <View style={styles.eventsSection}>
           <Text style={styles.sectionTitle}>My Events</Text>
           {eventsLoading ? (
-            <Text style={styles.loadingText}>Loading your events...</Text>
+            <LoadingState text='Loading your events...' compact />
           ) : userEvents.length > 0 ? (
             <FlatList
               data={userEvents}
               renderItem={renderEventItem}
-              keyExtractor={(item) => item.id}
+              keyExtractor={item => item.id}
               scrollEnabled={false}
               showsVerticalScrollIndicator={false}
             />
           ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="calendar-outline" size={48} color="#ccc" />
-              <Text style={styles.emptyStateText}>No events created yet</Text>
-              <Text style={styles.emptyStateSubtext}>
-                Go to the Events tab to create your first event!
-              </Text>
-            </View>
+            <EmptyState
+              compact
+              icon='calendar-outline'
+              title='No events created yet'
+              subtitle='Go to the Events tab to create your first event!'
+            />
           )}
         </View>
 
@@ -412,32 +430,49 @@ export default function ProfileScreen() {
         <View style={styles.postsSection}>
           <Text style={styles.sectionTitle}>My Posts</Text>
           {postsLoading ? (
-            <Text style={styles.loadingText}>Loading your posts...</Text>
+            <LoadingState text='Loading your posts...' compact />
           ) : userPosts.length > 0 ? (
             <FlatList
               data={userPosts}
               renderItem={renderPostItem}
-              keyExtractor={(item) => item.id}
+              keyExtractor={item => item.id}
               scrollEnabled={false}
               showsVerticalScrollIndicator={false}
             />
           ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="newspaper-outline" size={48} color="#ccc" />
-              <Text style={styles.emptyStateText}>No posts created yet</Text>
-              <Text style={styles.emptyStateSubtext}>
-                Go to the Posts tab to create your first post!
-              </Text>
-            </View>
+            <EmptyState
+              compact
+              icon='newspaper-outline'
+              title='No posts created yet'
+              subtitle='Go to the Posts tab to create your first post!'
+            />
           )}
         </View>
 
         {/* Logout Button */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color="#fff" />
+          <Ionicons name='log-out-outline' size={24} color='#fff' />
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
+
+        {/* Delete Account Button */}
+        <TouchableOpacity
+          style={styles.deleteAccountButton}
+          onPress={() => setShowDeleteModal(true)}
+        >
+          <Ionicons name='trash-outline' size={22} color='#e21d38' />
+          <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+        </TouchableOpacity>
       </ScrollView>
+
+      <DeleteAccountModal
+        visible={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onDeleted={() => {
+          setShowDeleteModal(false)
+          router.replace('/(auth)/login')
+        }}
+      />
     </SafeAreaView>
   )
 }
@@ -450,12 +485,18 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollViewContentWeb: {
+    ...maxWidthCard,
+    width: '100%',
+  },
   profileHeader: {
     backgroundColor: 'white',
     padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
+    marginHorizontal: 20,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -666,12 +707,6 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 15,
   },
-  loadingText: {
-    textAlign: 'center',
-    color: '#666',
-    fontSize: 16,
-    marginTop: 20,
-  },
   eventItem: {
     backgroundColor: 'white',
     padding: 15,
@@ -778,21 +813,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
   },
-  emptyState: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyStateText: {
-    fontSize: 18,
-    color: '#666',
-    marginTop: 15,
-    marginBottom: 5,
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-  },
   logoutButton: {
     backgroundColor: '#e21d38',
     flexDirection: 'row',
@@ -816,5 +836,31 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  deleteAccountButton: {
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+    marginHorizontal: 20,
+    marginBottom: 30,
+    borderRadius: 12,
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: '#e21d38',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  deleteAccountButtonText: {
+    color: '#e21d38',
+    fontSize: 16,
+    fontWeight: '600',
   },
 })

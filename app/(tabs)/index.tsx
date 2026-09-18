@@ -4,7 +4,6 @@ import {
   View,
   FlatList,
   SafeAreaView,
-  ImageBackground,
   TouchableOpacity,
   Text,
   Image,
@@ -25,6 +24,9 @@ import { getCurrentUser } from '../../utils/userUtils'
 import MainScreen from '../../components/MainScreen'
 import EventCard from '../../components/EventCard'
 import EventForm from '../../components/EventForm'
+import LoadingState from '../../components/LoadingState'
+import EmptyState from '../../components/EmptyState'
+import SkeletonList from '../../components/SkeletonList'
 import { Event, EventComment } from '../../types/event'
 import {
   createEvent,
@@ -36,12 +38,12 @@ import {
 import { uploadImage } from '../../utils/imageService'
 import { markEventAsSeen } from '../../utils/seenEventsService'
 import * as ImagePicker from 'expo-image-picker'
-import { isWeb, maxWidthContent } from '../../utils/platformStyles'
+import { isWeb, maxWidthContent, maxWidthCard } from '../../utils/platformStyles'
+import { COLORS, RADIUS, FONT } from '../../constants/theme'
 
 // Constants
 const DEFAULT_EVENT_IMAGE =
   'https://www.sunderlandecho.com/webimg/b25lY21zOmI3MGJlOTU0LWYzZWYtNDdjOC04ZjQwLTE4NDlhOWM2MmQ1YTo3MmI1NjBkOS01NDM5LTQzOGEtOWFkNy1kYmZkZmViNjUyYmI=.jpg?width=1200&enable=upscale'
-const BACKGROUND_IMAGE = require('../../assets/images/index-background.jpg')
 
 // Configure notifications
 if (Platform.OS !== 'web') {
@@ -71,6 +73,7 @@ export default function App() {
   const [commentText, setCommentText] = useState('')
   const [commentImage, setCommentImage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [createBtnHovered, setCreateBtnHovered] = useState(false)
 
   // Read eventId passed in the URL (e.g. from a tapped push notification)
   const params = useLocalSearchParams<{
@@ -311,14 +314,17 @@ export default function App() {
       <Modal
         isVisible={!!selectedEvent}
         onBackdropPress={() => setSelectedEvent(null)}
-        style={styles.eventDetailsModal}
+        style={[styles.eventDetailsModal, isWeb && styles.eventDetailsModalWeb]}
         backdropOpacity={0.5}
-        animationIn='slideInUp'
-        animationOut='slideOutDown'
+        animationIn={isWeb ? 'fadeIn' : 'slideInUp'}
+        animationOut={isWeb ? 'fadeOut' : 'slideOutDown'}
       >
         <ScrollView
           ref={eventDetailsScrollRef}
-          style={styles.eventDetailsModalContent}
+          style={[
+            styles.eventDetailsModalContent,
+            isWeb && styles.eventDetailsModalContentWeb,
+          ]}
         >
           {/* Event Header */}
           <View style={styles.eventDetailsHeader}>
@@ -546,56 +552,75 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ImageBackground
-        source={BACKGROUND_IMAGE}
-        defaultSource={{ uri: DEFAULT_EVENT_IMAGE }}
-        style={styles.backgroundImage}
-        resizeMode='cover'
-      >
-        <View style={styles.overlay}>
-          {/* --- MainScreen Component --- */}
-          <MainScreen onModalPress={() => setModalVisible(true)} />
-          {/* --- End of MainScreen Component --- */}
+      <View style={styles.overlay}>
+        {/* --- MainScreen Component --- */}
+        <MainScreen onModalPress={() => setModalVisible(true)} />
+        {/* --- End of MainScreen Component --- */}
 
-          <FlatList
-            data={events}
-            renderItem={({ item }) => (
-              <EventCard event={item} onPress={() => setSelectedEvent(item)} />
-            )}
-            keyExtractor={item => item.id}
-            contentContainerStyle={[
-              styles.eventsListContent,
-              isWeb && styles.eventsListContentWeb,
-            ]}
-            refreshing={loading}
-            onRefresh={() => {
-              // Events are automatically updated via subscription
-            }}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>
-                  {loading
-                    ? 'Loading events...'
-                    : user
-                      ? 'No events yet'
-                      : 'Please log in to see events'}
+        <FlatList
+          data={events}
+          renderItem={({ item }) => (
+            <EventCard event={item} onPress={() => setSelectedEvent(item)} />
+          )}
+          keyExtractor={item => item.id}
+          contentContainerStyle={[
+            styles.eventsListContent,
+            isWeb && styles.eventsListContentWeb,
+          ]}
+          ListHeaderComponent={
+            isWeb ? (
+              <TouchableOpacity
+                style={[
+                  styles.createEventInlineBtn,
+                  createBtnHovered && styles.createEventInlineBtnHovered,
+                ]}
+                onPress={() => setModalVisible(true)}
+                onMouseEnter={() => setCreateBtnHovered(true)}
+                onMouseLeave={() => setCreateBtnHovered(false)}
+              >
+                <Ionicons
+                  name='add-circle-outline'
+                  size={22}
+                  color={COLORS.primary}
+                />
+                <Text style={styles.createEventInlineBtnText}>
+                  Create Event
                 </Text>
-              </View>
-            }
-          />
-          <Modal
-            isVisible={modalVisible}
-            onBackdropPress={handleModalClose}
-            style={styles.createEventModal}
-            backdropOpacity={0.5}
-            animationIn='slideInUp'
-            animationOut='slideOutDown'
-          >
-            <EventForm onAddEvent={addEvent} onClose={handleModalClose} />
-          </Modal>
-          {selectedEvent && renderEventDetails()}
-        </View>
-      </ImageBackground>
+              </TouchableOpacity>
+            ) : undefined
+          }
+          refreshing={loading}
+          onRefresh={() => {
+            // Events are automatically updated via subscription
+          }}
+          ListEmptyComponent={
+            loading ? (
+              isWeb ? (
+                <SkeletonList count={3} />
+              ) : (
+                <LoadingState text='Loading events...' />
+              )
+            ) : (
+              <EmptyState
+                icon='calendar-outline'
+                title={user ? 'No events yet' : 'Please log in to see events'}
+                subtitle={user ? 'Be the first to create an event!' : undefined}
+              />
+            )
+          }
+        />
+        <Modal
+          isVisible={modalVisible}
+          onBackdropPress={handleModalClose}
+          style={[styles.createEventModal, isWeb && styles.createEventModalWeb]}
+          backdropOpacity={0.5}
+          animationIn='slideInUp'
+          animationOut='slideOutDown'
+        >
+          <EventForm onAddEvent={addEvent} onClose={handleModalClose} />
+        </Modal>
+        {selectedEvent && renderEventDetails()}
+      </View>
     </SafeAreaView>
   )
 }
@@ -603,45 +628,76 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  backgroundImage: {
-    flex: 1,
-    width: '100%',
+    backgroundColor: '#f5f5f5',
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: '#f5f5f5',
   },
   eventsListContent: {
     paddingBottom: 90,
   },
   eventsListContentWeb: {
     ...maxWidthContent,
+    width: '100%',
     paddingVertical: 24,
+    paddingBottom: 24,
   },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
+  createEventInlineBtn: {
+    ...maxWidthCard,
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    marginTop: 100,
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+    backgroundColor: COLORS.card,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    transition:
+      'background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
   },
-  emptyStateText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
+  createEventInlineBtnHovered: {
+    backgroundColor: '#fff',
+    borderColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+  },
+  createEventInlineBtnText: {
+    fontSize: FONT.size.base,
+    fontWeight: '600',
+    color: COLORS.text,
   },
   createEventModal: {
     justifyContent: 'flex-end',
     margin: 0,
   },
+  createEventModalWeb: {
+    justifyContent: 'center',
+  },
   eventDetailsModal: {
     justifyContent: 'flex-end',
     margin: 0,
   },
+  eventDetailsModalWeb: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   eventDetailsModalContent: {
-    backgroundColor: 'white',
+    backgroundColor: COLORS.card,
     maxHeight: '90%',
+  },
+  eventDetailsModalContentWeb: {
+    width: '100%',
+    maxWidth: 640,
+    maxHeight: '85%',
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
   },
   eventDetailsHeader: {
     position: 'absolute',

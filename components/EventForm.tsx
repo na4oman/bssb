@@ -15,7 +15,10 @@ import * as ImagePicker from 'expo-image-picker'
 import { Ionicons } from '@expo/vector-icons'
 import { format } from 'date-fns'
 import { Event } from '@/types/event'
+import { EventLocation } from '@/types/event'
 import { uploadImage } from '@/utils/imageService'
+import LocationPicker from './LocationPicker'
+import { COLORS, RADIUS, SHADOW, FONT } from '../constants/theme'
 
 interface EventFormProps {
   onAddEvent: (
@@ -32,6 +35,7 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
     title: '',
     date: new Date(),
     location: '',
+    locationCoordinates: undefined as EventLocation | undefined,
     description: '',
     imageUrl: '',
   })
@@ -39,6 +43,7 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
   const [mediaLibraryPermission, setMediaLibraryPermission] = useState<
     boolean | null
   >(null)
+  const [hovered, setHovered] = useState(false)
 
   // Convert a Date to the value format expected by <input type="datetime-local">
   const toDateTimeLocal = (d: Date) => {
@@ -69,7 +74,7 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
             borderRadius: 10,
             padding: 10,
             marginBottom: 15,
-            fontSize: 16,
+            fontSize: FONT.size.md,
             color: '#000',
             backgroundColor: '#f9f9f9',
             boxSizing: 'border-box',
@@ -97,8 +102,8 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
           }}
           onCancel={() => setShowDatePicker(false)}
           date={newEvent.date}
-          accentColor='#e21d38'
-          buttonTextColorIOS='#e21d38'
+          accentColor={COLORS.primary}
+          buttonTextColorIOS={COLORS.primary}
           themeVariant='light'
         />
       </View>
@@ -184,6 +189,7 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
         title: '',
         date: new Date(),
         location: '',
+        locationCoordinates: undefined,
         description: '',
         imageUrl: '',
       })
@@ -203,7 +209,7 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
     >
       <View style={styles.modalContent}>
         <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Ionicons name='close' size={24} color='#e21d38' />
+          <Ionicons name='close' size={24} color={COLORS.primary} />
         </TouchableOpacity>
 
         <Text style={styles.modalTitle}>Create New Event</Text>
@@ -226,15 +232,14 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
         <DateTimeInput />
 
         <Text style={styles.label}>Location</Text>
-        <TextInput
-          style={styles.input}
-          placeholder='Enter event location'
-          placeholderTextColor='rgba(92, 87, 87, 0.6)'
-          value={newEvent.location}
-          onChangeText={text =>
+        <LocationPicker
+          location={newEvent.location}
+          coordinates={newEvent.locationCoordinates ?? null}
+          onChange={(location, locationCoordinates) =>
             setNewEvent(prev => ({
               ...prev,
-              location: text,
+              location,
+              locationCoordinates: locationCoordinates ?? undefined,
             }))
           }
         />
@@ -276,8 +281,10 @@ const EventForm = ({ onAddEvent, onClose }: EventFormProps) => {
         </View>
 
         <TouchableOpacity
-          style={styles.createEventButton}
+          style={[styles.createEventButton, hovered && styles.createEventButtonHovered]}
           onPress={handleAddEvent}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
         >
           <Text style={styles.createEventButtonText}>Create Event</Text>
         </TouchableOpacity>
@@ -293,20 +300,13 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.xl,
     padding: 20,
     width: '90%',
     alignSelf: 'center',
     maxWidth: 500,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    ...SHADOW.heavy,
   },
   closeButton: {
     position: 'absolute',
@@ -321,15 +321,15 @@ const styles = StyleSheet.create({
     color: '#e21d38', // Sunderland red for close icon
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: FONT.size.xxl,
     fontWeight: 'bold',
-    color: '#e21d38', // Sunderland red for title
+    color: COLORS.primary, // Sunderland red for title
     marginBottom: 20,
     textAlign: 'center',
   },
   label: {
-    fontSize: 16,
-    color: '#333', // Dark gray for labels
+    fontSize: FONT.size.md,
+    color: COLORS.text, // Dark gray for labels
     marginBottom: 5,
     fontWeight: '600',
   },
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
     marginBottom: 15,
-    fontSize: 16,
+    fontSize: FONT.size.md,
     color: '#000',
     backgroundColor: '#f9f9f9', // Light background for inputs
   },
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   },
   imagePickerButton: {
     borderWidth: 1,
-    borderColor: '#e21d38', // Sunderland red border
+    borderColor: COLORS.primary, // Sunderland red border
     borderRadius: 10,
     padding: 10,
     marginBottom: 10,
@@ -361,8 +361,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9', // Light background
   },
   imagePickerText: {
-    fontSize: 16,
-    color: '#e21d38', // Sunderland red text
+    fontSize: FONT.size.md,
+    color: COLORS.primary, // Sunderland red text
     marginLeft: 10,
   },
   selectedImage: {
@@ -372,14 +372,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   createEventButton: {
-    backgroundColor: '#e21d38', // Sunderland red
+    backgroundColor: COLORS.primary, // Sunderland red
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 20,
+    transition: 'background-color 0.15s ease, transform 0.15s ease',
+  },
+  createEventButtonHovered: {
+    backgroundColor: COLORS.primaryDark,
+    transform: [{ scale: 1.02 }],
   },
   createEventButtonText: {
-    fontSize: 16,
+    fontSize: FONT.size.md,
     color: '#fff',
     fontWeight: 'bold',
   },
@@ -391,8 +396,8 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   dateButtonText: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: FONT.size.md,
+    color: COLORS.text,
   },
 })
 

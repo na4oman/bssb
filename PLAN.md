@@ -1,145 +1,199 @@
-# PLAN.md — New Version Plan: Web App + In-App Notification Center
+# BSSB — Data & Content Improvement Plan
 
-> Companion to AGENT.md (project context). This is the actionable checklist for the next version.
-> **Guiding principle (confirmed with the project owner):**
->
-> - 📱 **Mobile keeps the existing push notification flow untouched.**
-> - 🌐 **Web gets a Firestore-backed in-app notification center** (badge counter + notification cards + tap-to-navigate). No web push, no VAPID, no service worker.
-> - Both share one notification feed in Firestore; web-only users see notifications while logged in.
+Status: **Planning only. No implementation started.**
+Created: 18 September 2026
+Research background: `reports/football-data-sources.md`
 
----
+## 1. Goals
 
-## Phase 0 — Groundwork (small)
+Improve the app's matchday content, in priority order:
 
-- [x] Create a `notifications` collection in Firestore. Design (per-user documents):
-  ```ts
-  notifications/{autoId} {
-    userId: string,          // recipient
-    type: string,            // 'new_event' | 'like' | 'comment' | 'attendance' | 'payment_confirmed'
-    title: string,
-    message: string,
-    eventId?: string,        // for tap-to-navigate
-    read: boolean,           // default false
-    createdAt: serverTimestamp()
-  }
-  ```
-- [x] Add Firestore indexes if a compound query (userId + createdAt desc) requires it (`firestore.indexes.json`).
-- [x] Check `firestore.rules` — allow users to read/write only their own `notifications/{id}` (where `userId == request.auth.uid`). Add rules accordingly.
-  > ⚠️ **Needs deploy** (Firebase CLI not installed locally): `npx firebase-tools deploy --only firestore:rules,firestore:indexes` after `firebase login`.
+1. **Fix the news feed** — the current NewsAPI setup is not licensed for production, has a 24h delay, and is localhost-only on web.
+2. **Add live scores** during Sunderland matches.
+3. **Add match detail** — events (goals, cards, subs), lineups, statistics.
+4. **Add team/player depth** — injuries, transfers, predictions, head-to-head, player stats, top scorers/assists.
+5. **Unify fixtures** — cover PL + FA Cup + League Cup + Europa from one provider instead of the brittle ESPN workaround.
 
-## Phase 1 — Notification feed service (shared web + mobile)
+Primary provider: **API-Football (api-sports.io)** free plan — 100 requests/day, all endpoints.
+News providers: **Guardian Open Platform** (primary) and/or **BBC Sport RSS** (free fallback).
 
-- [x] New `utils/notificationFeedService.ts`:
-  - [x] `addNotification(userId, { type, title, message, eventId? })` → `addDoc` to `notifications`.
-  - [x] `addNotificationToAllUsers(notification, excludeUserId?)` → broadcast feed writes (mirrors `notifyAllUsers`).
-  - [x] `subscribeToNotifications(userId, callback)` → `onSnapshot` query `where('userId', '==', userId)` ordered by `createdAt desc`.
-  - [x] `markNotificationRead(notificationId)` → `updateDoc({ read: true })`.
-  - [x] `markAllNotificationsRead(userId)` (optional).
-- [x] Wire the **same triggers that already send mobile push** to ALSO write a feed doc (in `utils/eventService.ts`; keep push calls untouched):
-  - [x] `createEvent` → feed entry for all users (`addNotificationToAllUsers`, excludes creator).
-  - [x] `toggleEventLike` → feed entry for the event creator.
-  - [x] `addEventComment` → feed entry for the event creator.
-  - [x] `updateEventAttendance` → feed entry for the event creator.
-  - [x] Payment confirmed → feed entry in `toggleUserPaidStatus` (`utils/userService.ts`).
-- [x] Confirm mobile push calls remain byte-for-byte unchanged (regression check).
-  > ℹ️ Note: the `getUserPushTokens`/`sendPushNotification` helpers in `utils/userService.ts` are currently **unused (dead code)** — the payment push is not actually wired to send. Only the feed entry was added; the mobile push for payments is unchanged (it never fired).
+## 2. Constraints and budget
 
-## Phase 2 — Notification center UI (works on web AND mobile)
+API-Football free plan: **100 requests/day**, resets 00:00 UTC, all endpoints included.
+User's target: ~4 requests/hour average. That is achievable, but the budget is **shared across all users**, not per user — so the number of users must not scale the upstream call count.
 
-- [x] Evolve `components/NotificationBadge.tsx` (currently an unseen-events counter) into the notification bell:
-  - [x] Subscribes to `subscribeToNotifications(user.uid)`.
-  - [x] Badge shows **unread count** (sum of `read === false`).
-- [x] New notification list UI (screen or modal — implemented as a bottom-sheet `Modal` inside `NotificationBadge.tsx`):
-  - [x] Cards with `title`, `message`, relative timestamp (`date-fns`).
-  - [x] Unread styling until opened.
-  - [x] **Tap card → navigate to the event** via existing deep link `router.push('/(tabs)?eventId=...')` and call `markNotificationRead`.
-  - [x] Empty state.
-- [x] Keep header consistent (the bell lives in the custom red header via `app/(tabs)/_layout.tsx`).
+### Budget strategy (critical)
 
-## Phase 3 — Web readiness / platform gating
+All API-Football traffic goes through the Cloudflare Worker proxy, which:
 
-- [x] **Platform-gate `expo-notifications` usage** — `getExpoPushTokenAsync` / `setNotificationHandler` / listeners must not run on web:
-  - [x] `utils/simpleNotificationService.ts` `setupNotifications()`: early-return on `Platform.OS === 'web'` + `setupNotificationListeners`/`sendLocalNotification`/`notifyAllUsers` gated.
-  - [x] `contexts/AuthContext.tsx`: only call `setupNotifications` on native.
-  - [x] `components/NotificationHandler.tsx` + `MainScreen`: only mount on native (`Platform.OS !== 'web'`).
-  - [x] `components/NotificationSettings.tsx`: hide/disable push toggle on web.
-- [x] **Web fallback for `expo-image-picker`** (`app/(tabs)/index.tsx`, `components/EventForm.tsx`): web uses the browser file/photo UI via `expo-image-picker` (it supports web) + web-safe Cloudinary upload in `utils/imageService.ts` (converts `data:` URL → Blob).
-- [x] **Web fallback for `react-native-modal-datetime-picker`** (`components/EventForm.tsx`): use `<input type="datetime-local">` on web.
-- [x] Verify `react-native-modal` renders on web; if not, swap to React Native's built-in `Modal`. — Confirmed via `expo export --platform web` (bundle built O.K., `react-native-modal` included, no swap needed).
-- [x] Firebase admin is not bundled for web — `firebaseAdmin.ts` (imported `firebase-admin` + a private key) removed; verified the web bundle has no `firebase-admin` reference.
-- [x] Run `<!-- npx expo start --web -->` and smoke-test: login → events → RSVP → comment → badge updates → tap notification → opens event. (Manual browser smoke test to be done)
+- holds the API key in `env` (never shipped to clients),
+- caches upstream responses at the edge with per-endpoint TTLs,
+- serves a fixed number of upstream calls per day regardless of user count.
 
-## Phase 3.5 — Web UI layout & navigation overhaul
+| Data | Freshness need | Cache TTL | Approx. calls/day |
+| --- | --- | --- | --- |
+| Standings (PL) | Low | 6 h | ~4 |
+| Team fixtures (season, all comps) | Low | 12 h | ~2 |
+| Top scorers / assists | Low | 12 h | ~4 |
+| Squad / players | Low | 24 h | ~1 |
+| Injuries | Medium | 6 h | ~4 |
+| Transfers | Low | 24 h | ~1 |
+| Live fixtures (matchday only, polled) | High | 60–120 s, matchday window only | ~40–60 on matchday, 0 otherwise |
+| Match events/lineups (single match) | On demand, once | 1 h after match / 10 min live | ~4–6 per match |
+| Predictions / H2H (pre-match) | Low | 24 h | ~2–4 per match |
 
-> **Problem:** The web build currently stretches the native mobile layout to full desktop width. Bottom tab bar sits at the foot of a 1280px+ viewport, and every card (events, posts, news) is a giant image-on-top stack running edge-to-edge. The user has reviewed screenshots and confirmed the result is unusable on desktop.
+With matchday live polling concentrated in the ~2 hours around kickoff, expected usage stays well under 100/day. A **worker-side daily counter** should hard-stop when the quota is near and fall back to cache to avoid lockout.
 
-### Goal
+### Alternative / complement (no quota)
 
-| Concern | Mobile (native) | Web (desktop) |
-|---|---|---|
-| Tab navigation | Bottom tab bar (unchanged) | Top tab bar in the header/nav area |
-| Content width | Full-width (device width) | Constrained to a max-width container, centered |
-| Event/Post/News card | Image on top, text below (vertical) | Image on left, text on right (horizontal) |
-| Body | Default | `max-width: 1280px` centered, no edge-to-edge stretching |
+- **FPL API** (`fantasy.premierleague.com/api/bootstrap-static/`): keyless, no quota, PL player stats + xG/xA. Good for player stats if API-Football quota is tight. Verify browser CORS; call through the worker if needed.
+- **football-data.org**: keep for PL standings/fixtures (already integrated and proxied).
 
-### Tasks
+## 3. Target architecture
 
-- [ ] **Body max-width (global CSS)**
-  - [ ] Create `styles/global.css` with `body { max-width: 1280px; margin: 0 auto; background: #f5f5f5; }` (plus a `@media` guard so very narrow windows still work).
-  - [ ] Import it in `app/_layout.tsx` (the Expo Router root layout): `import '../styles/global.css'` — web-only import (no-op on native).
-  - [ ] Verify: open on desktop browser; the red header, tab bar, and content no longer bleed to the viewport edges.
+```
+Expo app (web + native)
+   │
+   ├── utils/apiFootballService.ts      (new)  typed client, mirrors footballDataService
+   ├── utils/newsService.ts             (new)  Guardian + BBC RSS
+   ├── utils/footballDataService.ts     (keep) PL standings/fixtures
+   │
+   ▼
+Cloudflare Worker  cloudflare-worker/src/index.js
+   ├── /football-data/*   (existing)
+   ├── /api-football/*    (new)  hides key, CORS, TTL cache, daily budget guard
+   └── /news/*            (new)  Guardian key + RSS→JSON normalisation
+   │
+   ▼
+Upstream providers  (API-Football, football-data.org, Guardian, BBC)
+```
 
-- [ ] **Top tab bar on web, bottom on mobile** (`app/(tabs)/_layout.tsx`)
-  - [ ] Compute `const isWeb = Platform.OS === 'web'` at the top of `TabsLayout`.
-  - [ ] Pass `tabBarPosition: isWeb ? 'top' : 'bottom'` to `<Tabs>` so the tab bar moves to the top on web but stays at the bottom on native.
-  - [ ] Web-specific `tabBarStyle`: full-width top strip, height ~56, label + icon inline (icon-left, label-right), `backgroundColor: '#e21d38'`, active/inactive tint unchanged. Add `web` key to `tabBarLabelStyle` for proper font rendering.
-  - [ ] Mobile `tabBarStyle` keeps existing `height: 60` bottom bar config (unchanged).
-  - [ ] Verify mobile still has the bottom red tab bar with icons-below-labels (`tabBarLabelPosition: 'below-icon'`); web now has a top strip with icons.
+Layered caching:
 
-- [ ] **Web card layout: image-left / text-right** (`components/EventCard.tsx`)
-  - [ ] Wrap the existing JSX in a `Platform.select` branch (or conditional `style`/`flexDirection`).
-  - [ ] **Web**: `flexDirection: 'row'` — image on the left (fixed `width: 200`, `height: 140`, `borderRadius: 12`), text content in a flex:1 container to the right.
-  - [ ] **Mobile**: keep the current vertical layout (`flexDirection: 'column'`, image `width: '100%'` `height: 180`, content below) — no behavioural change.
-  - [ ] Apply the same horizontal/vertical split to `components/PostDetailsModal.tsx` card and the News flat-list card in `app/(tabs)/news.tsx` so all card-based lists are visually consistent on web.
-  - [ ] Add a shared helper: `utils/platformStyles.ts` exporting `isWeb()` and reusable web/mobile style objects (`WEB_CARD_CONTAINER`, `WEB_CARD_IMAGE`, `MOBILE_CARD_IMAGE`, etc.) to avoid scattering `Platform.OS` checks across components.
-  - [ ] Verify: on desktop the events feed shows compact horizontal cards; on a phone it's still the stacked mobile layout.
+1. **Cloudflare edge cache / KV** — shared by all users, protects the upstream quota. Primary defence.
+2. **Scheduled pre-warm (Cron Trigger)** — worker fetches slow data (standings, fixtures, squad, top scorers) on a schedule and stores it in KV; clients always read KV.
+3. **Client cache** — AsyncStorage (per device, short TTL) + existing Firestore `teamStats` shared cache for cross-user data.
+4. **Graceful degradation** — always render last-known cached data with a "last updated" timestamp; never hard-fail.
 
-- [ ] **Constrain FlatList content width on web** (`app/(tabs)/index.tsx`, `app/(tabs)/posts.tsx`, `app/(tabs)/news.tsx`)
-  - [ ] Add `contentContainerStyle` with `maxWidth: isWeb ? 1280 : '100%'` and `marginHorizontal: isWeb ? 'auto' : 0` to each screen's `<FlatList>`.
-  - [ ] Adjust the `overlay` style (the `rgba(0,0,0,0.5)` View) so it doesn't fight the body-level max-width on web.
-  - [ ] Ensure the FAB (`MainScreen`) is positioned relative to the max-width container, not the viewport edge, on web.
+## 4. API-Football endpoint map
 
-- [ ] **Web max-width wrapper in root layout** (`app/_layout.tsx`)
-  - [ ] For `Platform.OS === 'web'`, wrap the `<AuthProvider>` / `<SafeAreaProvider>` children in a `<View style={styles.webMaxWidthWrapper}>` with `maxWidth: 1280, marginHorizontal: 'auto'`.
-  - [ ] This catches screens that don't use a FlatList (profile, table, etc.).
-  - [ ] For native, render children directly (no wrapper) — unchanged.
+Replace placeholders `{teamId}` (Sunderland) and `{season}` (start year, `2026` for 2026/27) once resolved.
 
-- [ ] **Smoke-test on web**
-  - [ ] `npx expo start --web` → verify all tabs (Events, Posts, News, Table, Fixtures) render without edge-to-edge overflow.
-  - [ ] Verify tab switching works with the top bar.
-  - [ ] Verify EventCard horizontal layout, tap-to-open event modal still works.
-  - [ ] Resize browser narrow → confirm it degrades gracefully to mobile-like behavior.
+| Feature | Endpoint | UI surface |
+| --- | --- | --- |
+| Resolve Sunderland team id | `/teams?search=Sunderland` | one-off setup |
+| All fixtures/results (PL + cups + Europa) | `/fixtures?team={teamId}&season={season}` | Fixtures tab |
+| Live scores | `/fixtures?live=all` or `/fixtures?team={teamId}&live=all` | Fixtures tab (matchday) |
+| League table | `/standings?league=39&season={season}` | Table tab |
+| Match events (goals/cards/subs) | `/fixtures/events?fixture={fixtureId}` | Match detail |
+| Lineups | `/fixtures/lineups?fixture={fixtureId}` | Match detail |
+| Match statistics | `/fixtures/statistics?fixture={fixtureId}` | Match detail |
+| Predictions | `/predictions?fixture={fixtureId}` | Match detail (pre-match) |
+| Head-to-head | `/fixtures/headtohead?h2h={idA}-{idB}` | Match detail |
+| Top scorers | `/players/topscorers?league=39&season={season}` | Stats section |
+| Top assists | `/players/topassists?league=39&season={season}` | Stats section |
+| Squad / player stats | `/players?team={teamId}&season={season}` | Squad section |
+| Injuries | `/injuries?team={teamId}&season={season}` | Squad / News |
+| Transfers | `/transfers?team={teamId}` | Squad / News |
 
-> 🚧 **Why before Phase 4?** The static export in Phase 4 (`expo export --platform web`) will package whatever the canvas looks like. Doing the layout fix first ensures the build is correct from the start.
+Auth: header `x-apisports-key`. Every response is wrapped in `{ get, parameters, errors, results, paging, response }` — handle `errors` explicitly.
 
-## Phase 4 — Web build & hosting
+## 5. News plan
 
-- [ ] `npx expo export --platform web` → static output in `dist/`.
-- [ ] Host on **Firebase Hosting** (project `safc-8863b` already set up; `.firebaserc` exists) — or Vercel/Netlify/GitHub Pages.
-- [ ] Set up a friendly URL / custom domain.
-- [ ] Verify in browser on desktop + Android Chrome; note iOS Safari behavior (PWA "Add to Home Screen" only).
+Current: `app/(tabs)/news.tsx` → NewsAPI `everything?q=Sunderland...` (dev-only, 24h delay, localhost CORS).
 
-## Phase 5 — Final regression & ship
+Target stack, in order:
 
-- [ ] Mobile: confirm push notifications still arrive (native device), tap-to-open still works.
-- [ ] Web: badge + list + navigation work logged-in.
-- [ ] `npx tsc --noEmit` — no new errors beyond the known pre-existing ones.
-- [ ] Commit + push; build `preview` APK if delivering a new Android build.
+1. **Guardian Open Platform** (primary) — free key, JSON, full text, continuous updates, attribution required.
+   - Query Sunderland: `q=Sunderland AFC` or the football tag, filtered by `from`/`order-by=newest`.
+2. **BBC Sport RSS** (free fallback / secondary) — `feeds.bbci.co.uk/sport/football/rss.xml` and transfers feed; worker parses XML → JSON.
+3. **NewsData.io** (optional, only if a single commercial-safe JSON API is wanted) — 200 credits/day, 12h delay, commercial use allowed.
 
----
+Requirements:
 
-## Out of scope (documented decisions)
+- Normalise all sources to one `NewsItem` shape: `{ id, title, summary, imageUrl, url, source, publishedAt }`.
+- Deduplicate by title/URL; sort newest first.
+- Never break the tab: on failure, show cached articles + "last updated" and a retry.
+- Add source label and per-article source attribution in the UI.
+- Keep the API key in the worker (Guardian) rather than `config/config.ts`.
+- Remove the NewsAPI dependency once replaced (and rotate/retire the exposed key in `config/config.ts`).
 
-- ❌ Web push notifications (no VAPID/service worker/FCM-web).
-- ❌ iOS App Store / Apple Developer subscription.
-- ❌ Moving push sending to Firebase Functions (flagged as a future security improvement; `firebaseAdmin.ts` on the client is an open concern).
+## 6. Phased delivery
+
+### Phase 0 — Prerequisites & decisions (no app code)
+- [ ] Register API-Football free account; store key as Cloudflare Worker secret `API_SPORTS_KEY` (not in the repo).
+- [ ] Register Guardian Open Platform key; store as worker secret `GUARDIAN_API_KEY`.
+- [ ] Look up Sunderland's API-Football team id and confirm PL league id `39`, season `2026`.
+- [ ] Decide whether API-Football fully replaces football-data.org or runs alongside it.
+- [ ] Confirm Cloudflare Worker KV namespace + Cron Trigger availability on the current plan.
+
+### Phase 1 — Data layer foundation
+- [ ] Extend `cloudflare-worker/src/index.js` with `/api-football/*` route: key injection, CORS allowlist, TTL cache, daily budget guard, `errors` passthrough.
+- [ ] Add `/news/*` route (Guardian JSON + BBC RSS→JSON normalisation).
+- [ ] Add `utils/apiFootballService.ts` mirroring `footballDataService` patterns (web → worker, native → direct or worker).
+- [ ] Add a request-budget utility + cache headers convention.
+- **Acceptance:** a test call returns cached data, the key never appears in web bundle/network, budget counter blocks before quota exhaustion.
+
+### Phase 2 — News feed revamp (highest user-visible value)
+- [ ] Implement `utils/newsService.ts` with Guardian primary + BBC fallback + normalisation/dedupe.
+- [ ] Refactor `app/(tabs)/news.tsx` to use it; loading/empty/error states, cached fallback, source labels, attribution, pull-to-refresh.
+- [ ] Remove NewsAPI usage and rotate the key.
+- **Acceptance:** News tab loads real Sunderland articles on web and native, no NewsAPI dependency, graceful offline behaviour.
+
+### Phase 3 — Fixtures & live scores
+- [ ] `utils/apiFootballService.ts`: fixtures by team/season, live fixtures.
+- [ ] Feed `app/(tabs)/fixtures.tsx` from API-Football (PL + cups + Europa); keep ESPN as fallback.
+- [ ] Matchday live polling (only inside the match window), with clear live UI.
+- **Acceptance:** all competitions appear from one source; live score updates during a match without exhausting quota.
+
+### Phase 4 — Match detail
+- [ ] New match detail screen/route.
+- [ ] Events, lineups, statistics, predictions, H2H sections with per-section caching.
+- **Acceptance:** tapping a fixture shows events/lineups/stats; pre-match shows prediction + H2H.
+
+### Phase 5 — Squad, injuries & transfers
+- [ ] Squad list from `/players`; injuries and transfers sections.
+- [ ] Link into the existing News/Stats surfaces where useful.
+- **Acceptance:** squad with positions; current injuries; recent transfers.
+
+### Phase 6 — Player stats
+- [ ] Top scorers/assists via API-Football (replace/augment ESPN); optional FPL xG/xA enrichment.
+- [ ] Integrate with existing `utils/statsService.ts` and Firestore `teamStats`.
+- **Acceptance:** stats match official sources; shared cache avoids repeated upstream calls.
+
+### Phase 7 — Hardening
+- [ ] Per-section `last updated` labels and stale-data indicators.
+- [ ] Worker logging/observability for upstream errors and budget usage.
+- [ ] Fallback matrix documented (which provider covers which feature when another fails).
+- **Acceptance:** a provider outage degrades gracefully with no blank screens.
+
+## 7. Data model additions (Firestore)
+
+- `teamStats/sunderland-stats` — extend with squad, injuries, transfers, top scorers/assists (or split into sub-docs to stay under the 1 MB doc limit).
+- `matches/{fixtureId}` — events, lineups, stats, prediction, H2H; TTL/refresh metadata.
+- `newsCache/latest` — normalised article list + `fetchedAt`.
+- Worker KV: cache keys per endpoint + a `budget/{yyyy-mm-dd}` counter.
+
+## 8. Risks
+
+- **Shared 100/day quota** — mitigated by edge cache, Cron pre-warm and a budget guard. Without this, a few users can lock the app out.
+- **Vendor lock-in / shape changes** — wrap every provider behind a service; never call APIs from components.
+- **Unofficial sources** (ESPN, FPL) — keep behind fallbacks; expect breakage.
+- **Licensing** — Guardian requires attribution; NewsAPI free is not production-legal; keep provider attribution visible.
+- **`config/config.ts` secrets** — current keys are hardcoded and shipped. New keys must live in the worker; existing exposed keys should be rotated.
+- **Doc size limits** — `teamStats` may approach the 1 MB Firestore doc limit if all data is inlined.
+
+## 9. Non-goals (for now)
+
+- Paid API tiers.
+- Video highlights (no good free source).
+- Full historical statistics / betting odds.
+- Betting or prediction-as-advice features beyond informational predictions.
+
+## 10. Open questions
+
+1. Should API-Football fully replace football-data.org, or run alongside it as the cups/players source?
+2. Is one news source (Guardian) enough, or do we want BBC RSS + Guardian combined?
+3. Matchday live polling window — 30 min before kickoff to full time?
+4. Where should match detail live — a new route/screen or an expandable card?
+5. Do we want the optional FPL xG enrichment, given it is unofficial?

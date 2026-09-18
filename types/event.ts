@@ -13,12 +13,17 @@ export type EventAttendee = {
   status: 'going' | 'maybe' | 'not going'
 }
 
+export type EventLocation = {
+  latitude: number
+  longitude: number
+}
+
 export type Event = {
   id: string
   title: string
   date: Date
   location: string
-  locationCoordinates?: Location
+  locationCoordinates?: EventLocation
   description: string
   imageUrl?: string
   createdBy: {

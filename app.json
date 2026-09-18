@@ -16,7 +16,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "UIBackgroundModes": ["background-fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "background-fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -71,7 +74,8 @@
             "version": "6.7.3"
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

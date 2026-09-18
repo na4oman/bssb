@@ -7,7 +7,7 @@ body {
   padding: 0;
   min-width: 320px;
   background-color: #e7ebf0;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -22,4 +22,13 @@ body {
   body {
     max-width: 100%;
   }
+}
+
+/* RN Web renders TextInput as a raw <input> element. On focus the browser
+   draws its default :focus outline over the field, which reads as a border.
+   Remove it so focused fields look identical to unfocused ones. */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
 }

@@ -32,7 +32,7 @@ export default function RootLayout() {
             backgroundColor='#e21d38'
             translucent={false}
           />
-          <View style={isWeb ? styles.appShell : undefined}>
+          <View style={isWeb && styles.appShell}>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name='index' options={{ headerShown: false }} />
               <Stack.Screen name='(auth)' options={{ headerShown: false }} />

@@ -49,8 +49,8 @@
 ### 3.4 Routing structure (expo-router)
 - `app/index.tsx` → redirects to `/(auth)/login` (gate).
 - `app/(auth)/login`, `signup` — Firebase email/password auth.
-- `app/(tabs)/` — main tabs: **index (Events)**, **posts**, **news**, **table**, **fixtures**, and hidden **profile**. Custom red header via `_layout.tsx`.
-- `app/profile.tsx` and `app/users.tsx` are root-level stack screens (nav via `router.push('/profile')`, `/users`).
+- `app/(tabs)/` — main tabs: **index (Events)**, **posts**, **news**, **table**, **fixtures**, and hidden **profile** (nav via `router.push('/profile')`). Custom red header via `_layout.tsx`.
+- `app/users.tsx` is a root-level stack screen (nav via `router.push('/users')`).
 - Notifications from the header: `components/NotificationBadge.tsx` is the **notification-center bell** (mounted in the red header next to the hamburger menu). It subscribes to the Firestore `notifications` feed (`utils/notificationFeedService.ts`), shows an unread-count badge, and opens a bottom-sheet list of cards; tapping a card marks it read and navigates via `/(tabs)?eventId=...`.
 
 ## 4. Build & test

@@ -15,6 +15,8 @@ import { Link, router } from 'expo-router'
 import { useAuth } from '../../contexts/AuthContext'
 import { Ionicons } from '@expo/vector-icons'
 import { saveCredentials, getStoredCredentials, clearStoredCredentials } from '../../utils/credentialStorage'
+import { saveSecureCredentials, clearSecureCredentials } from '../../utils/secureCredentialStorage'
+import { isWeb, maxWidthAuth } from '../../utils/platformStyles'
 
 const LogoImage = require('../../assets/images/logo.jpg')
 
@@ -24,6 +26,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(true)
+  const [hovered, setHovered] = useState(false)
   
   const { login, error } = useAuth()
   const { user } = useAuth()
@@ -67,8 +70,12 @@ export default function LoginScreen() {
       // Save credentials if remember me is checked
       if (rememberMe) {
         await saveCredentials(email.trim(), true)
+        // Keychain/Keystore copy used by the silent auto-login fallback
+        // on mobile (see AuthContext).
+        await saveSecureCredentials(email.trim(), password)
       } else {
         await clearStoredCredentials()
+        await clearSecureCredentials()
       }
       
       // Success - allow password managers to detect successful login
@@ -90,7 +97,7 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <View style={styles.content}>
+        <View style={[styles.content, isWeb && styles.contentWeb]}>
           {/* Logo and Title */}
           <View style={styles.header}>
             <Image source={LogoImage} style={styles.logo} resizeMode="contain" />
@@ -174,8 +181,14 @@ export default function LoginScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+                style={[
+                  styles.loginButton,
+                  loading && styles.loginButtonDisabled,
+                  hovered && !loading && styles.loginButtonHovered,
+                ]}
                 onPress={handleLogin}
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
                 disabled={loading}
               >
                 <Text style={styles.loginButtonText}>
@@ -211,6 +224,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 30,
+  },
+  contentWeb: {
+    ...maxWidthAuth,
+    width: '100%',
   },
   header: {
     alignItems: 'center',
@@ -306,9 +323,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    transition: 'background-color 0.15s ease, transform 0.15s ease',
   },
   loginButtonDisabled: {
     backgroundColor: '#ccc',
+  },
+  loginButtonHovered: {
+    backgroundColor: '#c0142e',
+    transform: [{ scale: 1.02 }],
   },
   loginButtonText: {
     color: 'white',

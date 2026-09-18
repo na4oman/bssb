@@ -14,6 +14,7 @@ import {
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { Platform } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 console.log('AuthContext: Starting to import Firebase auth...')
 
@@ -29,6 +30,11 @@ import {
   setupNotifications,
   setupNotificationListeners,
 } from '../utils/simpleNotificationService'
+import { syncMatchRemindersToDevice } from '../utils/matchReminderService'
+import {
+  getSecureCredentials,
+  clearSecureCredentials,
+} from '../utils/secureCredentialStorage'
 
 console.log('AuthContext: All imports completed')
 
@@ -85,12 +91,65 @@ export function AuthProvider({ children }: AuthProviderProps) {
             'Notifications setup:',
             hasPermission ? 'Success' : 'Failed',
           )
+
+          // Sync match reminders set on other devices (e.g. web) onto this
+          // device so the notification fires even if Fixtures is never opened
+          try {
+            const saved = await AsyncStorage.getItem('matchReminders')
+            const local = saved ? JSON.parse(saved) : {}
+            await syncMatchRemindersToDevice(user.uid, local, () => {})
+          } catch (error) {
+            console.error('Error syncing match reminders:', error)
+          }
         } catch (error) {
           console.error('Error setting up notifications:', error)
         }
       } else {
         // Clear notification state when user logs out
         setNotificationsEnabled(false)
+
+        // Silent auto-login fallback (native only): Firebase's JS SDK
+        // sometimes fails to restore/refresh the session at cold start
+        // (no network, or a revoked refresh token), which signs the user
+        // out. If "Remember me" credentials are stored in the OS keychain,
+        // re-authenticate silently so the login screen never appears.
+        // Credentials are cleared on explicit logout and when they become
+        // invalid, so this can't loop.
+        if (Platform.OS !== 'web') {
+          try {
+            const stored = await getSecureCredentials()
+            if (stored) {
+              console.log('AuthContext: Attempting silent auto-login...')
+              await signInWithEmailAndPassword(
+                auth,
+                stored.email,
+                stored.password,
+              )
+              // onAuthStateChanged fires again with the user; keep loading
+              // true until then so the login screen never flashes.
+              return
+            }
+          } catch (error: any) {
+            const code = error?.code || ''
+            if (
+              code === 'auth/invalid-credential' ||
+              code === 'auth/wrong-password' ||
+              code === 'auth/user-not-found' ||
+              code === 'auth/invalid-login-credentials'
+            ) {
+              console.warn(
+                'AuthContext: Stored credentials invalid, clearing:',
+                code,
+              )
+              await clearSecureCredentials()
+            } else {
+              console.warn(
+                'AuthContext: Auto-login failed (transient):',
+                code || error,
+              )
+            }
+          }
+        }
       }
 
       setLoading(false)
@@ -148,6 +207,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setError(null)
 
       await firebaseSignOut(auth)
+      // Explicit logout must disable the silent auto-login fallback,
+      // otherwise the stored keychain credentials would log the user
+      // straight back in.
+      await clearSecureCredentials()
       console.log('AuthContext: Firebase signOut completed')
     } catch (error: any) {
       console.error('AuthContext: Logout error:', error)
@@ -159,6 +222,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signOut = async () => {
     try {
       await firebaseSignOut(auth)
+      await clearSecureCredentials()
     } catch (error) {
       console.error('Error signing out:', error)
     }

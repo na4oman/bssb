@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  ActivityIndicator,
   ScrollView,
   Image,
   Dimensions,
@@ -12,6 +11,8 @@ import {
 import axios from 'axios'
 import { footballDataApiKey } from '../../config/config'
 import { footballDataGet } from '../../utils/footballDataService'
+import { isWeb, maxWidthCard } from '../../utils/platformStyles'
+import LoadingState from '../../components/LoadingState'
 
 type TeamStats = {
   position: number
@@ -83,70 +84,127 @@ export default function TableScreen() {
 
   const renderTableHeader = () => (
     <View style={styles.headerContainer}>
-      <View style={styles.fixedHeaderColumn}>
+      <View style={[styles.fixedHeaderColumn, isWeb && styles.fixedColumnWeb]}>
         <View style={styles.fixedHeaderRow}>
           <View style={styles.positionCell}>
-            <Text style={styles.headerText}>Pos</Text>
+            <Text style={[styles.headerText, isWeb && styles.headerTextWeb]}>
+              Pos
+            </Text>
           </View>
           <View style={styles.teamLogoCell}>
-            <Text style={[styles.headerText, { marginLeft: -15 }]}>Logo</Text>
+            <Text
+              style={[
+                styles.headerText,
+                { marginLeft: -15 },
+                isWeb && styles.headerTextWeb,
+              ]}
+            >
+              Logo
+            </Text>
           </View>
         </View>
       </View>
       <View style={styles.scrollableHeaderColumns}>
-        <View style={[styles.teamNameCell, { minWidth: 140 }]}>
-          <Text style={styles.headerText}>Team</Text>
+        <View
+          style={[
+            styles.teamNameCell,
+            { minWidth: 140 },
+            isWeb && styles.teamNameCellWeb,
+          ]}
+        >
+          <Text style={[styles.headerText, isWeb && styles.headerTextWeb]}>
+            Team
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 40 }]}>
-          <Text style={styles.headerText}>Pts</Text>
+          <Text style={[styles.headerText, isWeb && styles.headerTextWeb]}>
+            Pts
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 30 }]}>
-          <Text style={styles.headerText}>P</Text>
+          <Text style={[styles.headerText, isWeb && styles.headerTextWeb]}>
+            P
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 30 }]}>
-          <Text style={styles.headerText}>W</Text>
+          <Text style={[styles.headerText, isWeb && styles.headerTextWeb]}>
+            W
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 30 }]}>
-          <Text style={styles.headerText}>D</Text>
+          <Text style={[styles.headerText, isWeb && styles.headerTextWeb]}>
+            D
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 30 }]}>
-          <Text style={styles.headerText}>L</Text>
+          <Text style={[styles.headerText, isWeb && styles.headerTextWeb]}>
+            L
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 40 }]}>
-          <Text style={styles.headerText}>GF</Text>
+          <Text style={[styles.headerText, isWeb && styles.headerTextWeb]}>
+            GF
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 40 }]}>
-          <Text style={styles.headerText}>GA</Text>
+          <Text style={[styles.headerText, isWeb && styles.headerTextWeb]}>
+            GA
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 40 }]}>
-          <Text style={styles.headerText}>GD</Text>
+          <Text style={[styles.headerText, isWeb && styles.headerTextWeb]}>
+            GD
+          </Text>
         </View>
       </View>
     </View>
   )
 
-  const renderTeamRow = ({ item }: { item: TeamStats }) => (
-    <View style={styles.rowContainer}>
-      <View style={styles.fixedColumn}>
+  const renderTeamRow = ({
+    item,
+    index,
+  }: {
+    item: TeamStats
+    index: number
+  }) => (
+    <View
+      style={[
+        styles.rowContainer,
+        isWeb && index % 2 === 1 && styles.rowAlternateWeb,
+      ]}
+    >
+      <View style={[styles.fixedColumn, isWeb && styles.fixedColumnWeb]}>
         <View style={styles.fixedColumnRow}>
           <View style={styles.positionCell}>
-            <Text style={[styles.positionText, { paddingLeft: 10 }]}>
+            <Text
+              style={[
+                styles.positionText,
+                { paddingLeft: 10 },
+                isWeb && styles.positionTextWeb,
+              ]}
+            >
               {item.position}
             </Text>
           </View>
           <View style={styles.teamLogoCell}>
             <Image
               source={{ uri: item.team.crest }}
-              style={styles.teamLogo}
+              style={[styles.teamLogo, isWeb && styles.teamLogoWeb]}
               resizeMode='contain'
             />
           </View>
         </View>
       </View>
       <View style={styles.scrollableColumns}>
-        <View style={[styles.teamNameCell, { minWidth: 140 }]}>
+        <View
+          style={[
+            styles.teamNameCell,
+            { minWidth: 140 },
+            isWeb && styles.teamNameCellWeb,
+          ]}
+        >
           <Text
-            style={styles.teamNameText}
+            style={[styles.teamNameText, isWeb && styles.teamNameTextWeb]}
             numberOfLines={1}
             ellipsizeMode='tail'
           >
@@ -154,41 +212,57 @@ export default function TableScreen() {
           </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 40 }]}>
-          <Text style={[styles.statText, styles.pointsText]}>
+          <Text
+            style={[
+              styles.statText,
+              styles.pointsText,
+              isWeb && styles.statTextWeb,
+            ]}
+          >
             {item.points}
           </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 30 }]}>
-          <Text style={styles.statText}>{item.playedGames}</Text>
+          <Text style={[styles.statText, isWeb && styles.statTextWeb]}>
+            {item.playedGames}
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 30 }]}>
-          <Text style={styles.statText}>{item.won}</Text>
+          <Text style={[styles.statText, isWeb && styles.statTextWeb]}>
+            {item.won}
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 30 }]}>
-          <Text style={styles.statText}>{item.draw}</Text>
+          <Text style={[styles.statText, isWeb && styles.statTextWeb]}>
+            {item.draw}
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 30 }]}>
-          <Text style={styles.statText}>{item.lost}</Text>
+          <Text style={[styles.statText, isWeb && styles.statTextWeb]}>
+            {item.lost}
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 40 }]}>
-          <Text style={styles.statText}>{item.goalsFor}</Text>
+          <Text style={[styles.statText, isWeb && styles.statTextWeb]}>
+            {item.goalsFor}
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 40 }]}>
-          <Text style={styles.statText}>{item.goalsAgainst}</Text>
+          <Text style={[styles.statText, isWeb && styles.statTextWeb]}>
+            {item.goalsAgainst}
+          </Text>
         </View>
         <View style={[styles.statCell, { minWidth: 40 }]}>
-          <Text style={styles.statText}>{item.goalDifference}</Text>
+          <Text style={[styles.statText, isWeb && styles.statTextWeb]}>
+            {item.goalDifference}
+          </Text>
         </View>
       </View>
     </View>
   )
 
   if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size='large' color='#e21d38' />
-      </View>
-    )
+    return <LoadingState text='Loading table...' />
   }
 
   if (error) {
@@ -199,7 +273,17 @@ export default function TableScreen() {
     )
   }
 
-  return (
+  return isWeb ? (
+    <View style={[styles.container, styles.containerWeb]}>
+      {renderTableHeader()}
+      <FlatList
+        data={standings}
+        keyExtractor={item => item.team.id.toString()}
+        renderItem={renderTeamRow}
+        contentContainerStyle={styles.tableContent}
+      />
+    </View>
+  ) : (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
@@ -225,6 +309,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+    marginTop: 10,
+  },
+  containerWeb: {
+    ...maxWidthCard,
+    width: '100%',
   },
   headerContainer: {
     flexDirection: 'row',
@@ -236,11 +325,15 @@ const styles = StyleSheet.create({
     borderRightColor: 'white',
     width: 60,
   },
+  fixedColumnWeb: {
+    width: 84,
+  },
   fixedHeaderRow: {
     flexDirection: 'row',
   },
   scrollableHeaderColumns: {
     flexDirection: 'row',
+    flex: 1,
   },
   rowContainer: {
     flexDirection: 'row',
@@ -248,6 +341,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     minHeight: 30,
+  },
+  rowAlternateWeb: {
+    backgroundColor: '#f9f9f9',
   },
   fixedColumn: {
     width: 60,
@@ -263,6 +359,7 @@ const styles = StyleSheet.create({
   },
   scrollableColumns: {
     flexDirection: 'row',
+    flex: 1,
   },
   positionCell: {
     width: 30,
@@ -275,6 +372,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
   },
+  teamNameCellWeb: {
+    flex: 1,
+    alignItems: 'flex-start',
+    paddingLeft: 16,
+  },
   statCell: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -286,6 +388,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 11,
   },
+  headerTextWeb: {
+    fontSize: 13,
+  },
   teamLogoCell: {
     width: 40,
     justifyContent: 'center',
@@ -296,20 +401,34 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
   },
+  teamLogoWeb: {
+    width: 26,
+    height: 26,
+  },
   positionText: {
     fontWeight: 'bold',
     color: '#666',
     fontSize: 11,
     textAlign: 'center',
   },
+  positionTextWeb: {
+    fontSize: 13,
+  },
   teamNameText: {
     color: '#333',
     fontSize: 11,
+  },
+  teamNameTextWeb: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   statText: {
     color: '#333',
     textAlign: 'center',
     fontSize: 11,
+  },
+  statTextWeb: {
+    fontSize: 13,
   },
   pointsText: {
     fontWeight: 'bold',

@@ -1,8 +1,10 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native'
 import { format } from 'date-fns'
 import { Ionicons } from '@expo/vector-icons'
-import { isWeb } from '../utils/platformStyles'
+import { isWeb, maxWidthCard } from '../utils/platformStyles'
+import { COLORS, RADIUS, SHADOW, FONT } from '../constants/theme'
+import { EventLocation } from '../types/event'
 
 // Restore the default event image
 const DEFAULT_EVENT_IMAGE =
@@ -32,7 +34,7 @@ type Event = {
   title: string
   date: Date
   location: string
-  locationCoordinates?: Location
+  locationCoordinates?: EventLocation
   description: string
   imageUrl?: string
   createdBy: {
@@ -45,10 +47,18 @@ type Event = {
 }
 
 const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
+  const [hovered, setHovered] = useState(false)
+
   return (
     <TouchableOpacity
-      style={[styles.eventCard, isWeb && styles.eventCardWeb]}
+      style={[
+        styles.eventCard,
+        isWeb && styles.eventCardWeb,
+        isWeb && hovered && styles.eventCardHovered,
+      ]}
       onPress={() => onPress(event)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       activeOpacity={0.8}
     >
       {/* Event Image */}
@@ -70,7 +80,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
         {/* Date Section */}
         <View style={styles.infoRow}>
           <View style={styles.labelContainer}>
-            <Ionicons name='calendar-outline' size={16} color='#e21d38' />
+            <Ionicons name='calendar-outline' size={16} color={COLORS.primary} />
             <Text style={styles.label}>Date</Text>
           </View>
           <Text style={styles.dateValue}>
@@ -82,7 +92,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
         {/* Location Section */}
         <View style={styles.infoRow}>
           <View style={styles.labelContainer}>
-            <Ionicons name='location-outline' size={16} color='#e21d38' />
+            <Ionicons name='location-outline' size={16} color={COLORS.primary} />
             <Text style={styles.label}>Location</Text>
           </View>
           <Text style={styles.locationValue} numberOfLines={1}>
@@ -102,7 +112,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
 
         {/* Created By */}
         <View style={styles.createdByContainer}>
-          <Ionicons name='person-outline' size={14} color='#999' />
+          <Ionicons name='person-outline' size={14} color={COLORS.textMuted} />
           <Text style={styles.createdByText}>
             Created by {event.createdBy.userName}
           </Text>
@@ -114,15 +124,15 @@ const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
         style={[styles.eventCardFooter, isWeb && styles.eventCardFooterWeb]}
       >
         <View style={styles.eventCardStats}>
-          <Ionicons name='heart' size={18} color='#e21d38' />
+          <Ionicons name='heart' size={18} color={COLORS.primary} />
           <Text style={styles.eventCardStatsText}>{event.likes.length}</Text>
         </View>
         <View style={styles.eventCardStats}>
-          <Ionicons name='chatbubble-outline' size={18} color='#666' />
+          <Ionicons name='chatbubble-outline' size={18} color={COLORS.textSecondary} />
           <Text style={styles.eventCardStatsText}>{event.comments.length}</Text>
         </View>
         <View style={styles.eventCardStats}>
-          <Ionicons name='people-outline' size={18} color='#666' />
+          <Ionicons name='people-outline' size={18} color={COLORS.textSecondary} />
           <Text style={styles.eventCardStatsText}>
             {event.attendees.filter(a => a.status === 'going').length}
           </Text>
@@ -134,26 +144,27 @@ const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
 
 const styles = StyleSheet.create({
   eventCard: {
-    backgroundColor: 'white',
+    backgroundColor: COLORS.card,
     margin: 12,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 6,
+    borderRadius: RADIUS.lg,
+    ...SHADOW.card,
     overflow: 'hidden',
   },
   eventCardWeb: {
+    ...maxWidthCard,
     flexDirection: 'row',
     alignItems: 'stretch',
-    maxWidth: 920,
-    marginHorizontal: 'auto',
     width: '100%',
     borderRadius: 14,
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+  },
+  eventCardHovered: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 10,
+    transform: [{ translateY: -2 }],
   },
   eventCardImage: {
     width: '100%',
@@ -175,9 +186,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   eventTitle: {
-    fontSize: 20,
+    fontSize: FONT.size.xl,
     fontWeight: 'bold',
-    color: '#e21d38',
+    color: COLORS.text,
     marginBottom: 12,
     lineHeight: 24,
   },
@@ -194,32 +205,32 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   label: {
-    fontSize: 12,
+    fontSize: FONT.size.xs,
     fontWeight: '600',
-    color: '#666',
+    color: COLORS.textSecondary,
     marginLeft: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   dateValue: {
-    fontSize: 16,
+    fontSize: FONT.size.md,
     fontWeight: '600',
-    color: '#333',
+    color: COLORS.text,
     marginRight: 8,
   },
   timeValue: {
-    fontSize: 16,
+    fontSize: FONT.size.md,
     fontWeight: 'bold',
-    color: '#e21d38',
+    color: COLORS.primary,
     backgroundColor: '#fff5f5',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
   },
   locationValue: {
-    fontSize: 15,
+    fontSize: FONT.size.base,
     fontWeight: '500',
-    color: '#333',
+    color: COLORS.text,
     flex: 1,
   },
   descriptionContainer: {
@@ -227,16 +238,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   descriptionLabel: {
-    fontSize: 12,
+    fontSize: FONT.size.xs,
     fontWeight: '600',
-    color: '#666',
+    color: COLORS.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   descriptionValue: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: FONT.size.sm,
+    color: COLORS.textSecondary,
     lineHeight: 20,
   },
   createdByContainer: {
@@ -245,11 +256,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: COLORS.border,
   },
   createdByText: {
-    fontSize: 12,
-    color: '#999',
+    fontSize: FONT.size.xs,
+    color: COLORS.textMuted,
     marginLeft: 4,
     fontStyle: 'italic',
   },
@@ -281,9 +292,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   eventCardStatsText: {
-    fontSize: 14,
+    fontSize: FONT.size.sm,
     fontWeight: '600',
-    color: '#666',
+    color: COLORS.textSecondary,
     marginLeft: 6,
   },
 })
